@@ -1,6 +1,6 @@
 .PHONY: lint
 lint:
-	uv run mypy .
+	uv run mypy . --strict
 	uv run ruff check .
 	uv run black . --check
 
