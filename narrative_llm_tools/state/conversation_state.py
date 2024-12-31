@@ -71,7 +71,13 @@ class ConversationState(BaseModel):
     tool responses), validate transitions, and keep track of rounds of tool usage.
     """
 
-    RESERVED_KEYS: ClassVar[set[str]] = {"inputs", "tools", "tool_choice", "max_tool_rounds"}
+    RESERVED_KEYS: ClassVar[set[str]] = {
+        "inputs",
+        "tools",
+        "tool_choice",
+        "max_tool_rounds",
+        "log_level",
+    }
 
     raw_messages: list[ConversationMessage]
     max_tool_rounds: int = 5
