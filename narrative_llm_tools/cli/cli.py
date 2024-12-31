@@ -7,7 +7,7 @@ import tqdm
 from narrative_llm_tools.state.conversation import validate_line
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Validate a .jsonl file against the Narrative Conversation File Format specification."
     )

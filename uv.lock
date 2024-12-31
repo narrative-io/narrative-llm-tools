@@ -436,6 +436,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "requests" },
     { name = "torch" },
+    { name = "tqdm" },
     { name = "transformers" },
 ]
 
@@ -470,6 +471,7 @@ requires-dist = [
     { name = "torch", specifier = "==2.5.1", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "extra == 'cpu'", specifier = "==2.5.1+cpu", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "extra == 'test'", specifier = "==2.5.1+cpu", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "tqdm", specifier = ">=4.66.4" },
     { name = "transformers", specifier = ">=4.47.1" },
     { name = "types-cachetools", marker = "extra == 'dev'", specifier = ">=5.3.0.7" },
     { name = "types-requests", marker = "extra == 'dev'", specifier = ">=2.31.0.20240311" },
