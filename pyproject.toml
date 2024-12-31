@@ -35,6 +35,8 @@ dev = [
     "mypy>=1.9.0",
     "types-requests>=2.31.0.20240311",
     "types-cachetools>=5.3.0.7",
+    "ruff>=0.8.4",
+    "black>=24.2.0",
 ]
 
 [project.scripts]
@@ -87,3 +89,45 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
+exclude = [
+    'tests/',  # Exclude test directory
+    'test_*.py'  # Exclude test files
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = [
+    "tests",
+    "test_*.py",
+    "__pycache__",
+    ".venv",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+include = '\.pyi?$'
+exclude = '''
+(
+  /(
+      \.eggs
+    | \.git
+    | \.venv
+    | build
+    | dist
+    | tests
+  )/
+)
+'''

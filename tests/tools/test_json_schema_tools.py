@@ -1,12 +1,17 @@
 import pytest
 from pydantic import ValidationError
-from narrative_llm_tools.rest_api_client.types import BearerTokenAuth, RestApiConfig
-from narrative_llm_tools.rest_api_client.rest_api_client import RestApiClient
 
+from narrative_llm_tools.rest_api_client.rest_api_client import RestApiClient
+from narrative_llm_tools.rest_api_client.types import BearerTokenAuth, RestApiConfig
 from narrative_llm_tools.tools.json_schema_tools import (
-    NameProperty, ParametersProperty, ToolProperties, ToolSchema,
-    Tool, ItemsSchema, JsonSchemaTools
+    ItemsSchema,
+    JsonSchemaTools,
+    NameProperty,
+    ParametersProperty,
+    ToolProperties,
+    ToolSchema,
 )
+
 
 @pytest.fixture
 def sample_config():

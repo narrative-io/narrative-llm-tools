@@ -1,16 +1,19 @@
 import json
-from typing import Annotated, Any, List, Literal, Mapping, Tuple, Union
-from pydantic import BaseModel, Field, field_validator
+from collections.abc import Mapping
+from typing import Annotated, Any, Literal
 
 import jsonschema
+from pydantic import BaseModel, Field, field_validator
 
 
-def parse_json_array(content_str: str, tool_catalog_schema: Union[Mapping[str, Any], None]) -> Tuple[List[str], List[Any]]:
+def parse_json_array(
+    content_str: str, tool_catalog_schema: Mapping[str, Any] | None
+) -> tuple[list[str], list[Any]]:
     """
     Tries to parse a string into JSON and ensure it's an array (list).
     Returns (error_message, parsed_array) where error_message is None if success.
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     try:
         parsed = json.loads(content_str)
@@ -43,8 +46,10 @@ class BaseMessage(BaseModel):
             return v
         raise ValueError(f"Message 'content' must be a string, got {type(v)}")
 
+
 class SystemMessage(BaseMessage):
     from_: Literal["system"] = Field(alias="from")
+
 
 class ToolCatalogMessage(BaseMessage):
     from_: Literal["tool_catalog"] = Field(alias="from")
@@ -54,17 +59,23 @@ class ToolCatalogMessage(BaseMessage):
         try:
             schema = json.loads(v)
             jsonschema.Draft7Validator.check_schema(schema)
-        except json.JSONDecodeError:
-            raise ValueError("'tool_catalog' message 'content' must be valid JSON (a JSON Schema).")
+        except json.JSONDecodeError as err:
+            raise ValueError(
+                "'tool_catalog' message 'content' ", "must be valid JSON (a JSON Schema)."
+            ) from err
         except jsonschema.ValidationError as e:
-            raise ValueError(f"'tool_catalog' message contains invalid JSON Schema: {str(e)}")
-        
+            raise ValueError(
+                "'tool_catalog' message contains ", f"invalid JSON Schema: {str(e)}"
+            ) from e
+
         if isinstance(v, str):
             return v
         raise ValueError(f"Message 'content' must be a string, got {type(v)}")
 
+
 class UserMessage(BaseMessage):
     from_: Literal["user"] = Field(alias="from")
+
 
 class ToolCallMessage(BaseMessage):
     from_: Literal["assistant", "tool_calls"] = Field(alias="from")
@@ -83,6 +94,7 @@ class ToolCallMessage(BaseMessage):
             return v
         raise ValueError(f"Message 'content' must be a string, got {type(v)}")
 
+
 class ToolResponseMessage(BaseMessage):
     from_: Literal["tool_response", "tool"] = Field(alias="from")
 
@@ -100,10 +112,12 @@ class ToolResponseMessage(BaseMessage):
             return v
         raise ValueError(f"Message 'content' must be a string, got {type(v)}")
 
+
 Message = Annotated[
-    Union[SystemMessage, ToolCatalogMessage, UserMessage, ToolCallMessage, ToolResponseMessage],
-    Field(discriminator='from_')
+    SystemMessage | ToolCatalogMessage | UserMessage | ToolCallMessage | ToolResponseMessage,
+    Field(discriminator="from_"),
 ]
+
 
 class MessageWrapper(BaseModel):
     message: Message

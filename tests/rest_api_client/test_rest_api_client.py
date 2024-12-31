@@ -1,13 +1,18 @@
 import json
 import logging
-import pytest
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
+import pytest
 import requests
 
-
 from narrative_llm_tools.rest_api_client.rest_api_client import RestApiClient
-from narrative_llm_tools.rest_api_client.types import BearerTokenAuth, HttpMethod, ParameterLocation, RestApiConfig
+from narrative_llm_tools.rest_api_client.types import (
+    BearerTokenAuth,
+    HttpMethod,
+    ParameterLocation,
+    RestApiConfig,
+)
+
 
 @pytest.fixture
 def sample_config():
@@ -124,7 +129,7 @@ def test_body_params_no_path_params():
 def test_log_api_call_successful(api_client, caplog):
     with api_client.log_api_call(params={"test": "value"}):
         pass  # Simulating successful API call
-    
+
     # Check debug logs
     assert "Starting API call to test_api" in caplog.text
     assert "API call completed in" in caplog.text
@@ -135,7 +140,7 @@ def test_log_api_call_with_exception(api_client, caplog):
     with pytest.raises(ValueError):
         with api_client.log_api_call(params={"test": "value"}):
             raise ValueError("Test error")
-    
+
     # Check debug and error logs
     assert "Starting API call to test_api" in caplog.text
     assert "API call failed: Test error" in caplog.text
@@ -186,7 +191,7 @@ class TestRestApiClient:
         mock_request.return_value = mock_response
 
         response = api_client.call({"user_id": "123"})
-        
+
         assert response.status == 200
         assert response.type == "text"
         assert response.body == "Hello, World!"
@@ -196,7 +201,7 @@ class TestRestApiClient:
     def test_request_exception(self, mock_request, api_client):
         # Test lines 98-103: HTTP request failure
         mock_request.side_effect = requests.exceptions.RequestException("Connection error")
-        
+
         with pytest.raises(RuntimeError, match="HTTP request failed: Connection error"):
             api_client.call({"user_id": "123"})
 
@@ -225,7 +230,7 @@ class TestRestApiClient:
             query_path="data.items[0]"  # Set during initialization
         )
         api_client = RestApiClient(name="test_api", config=config)
-        
+
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.headers = {"Content-Type": "application/json"}
@@ -246,7 +251,7 @@ class TestRestApiClient:
     def test_general_exception(self, mock_request, api_client):
         # Test lines 137-140: General exception handling in _build_request_params
         mock_request.side_effect = Exception("Unexpected error")
-        
+
         with pytest.raises(RuntimeError, match="Failed to call REST API: Unexpected error"):
             api_client.call({"user_id": "123"})
 
@@ -255,7 +260,7 @@ def test_get_auth_headers_no_auth():
     """Test when no auth config is provided"""
     config = RestApiConfig(url="https://api.example.com", method="GET")
     client = RestApiClient(name="test", config=config)
-    
+
     headers = client._get_auth_headers()
     assert headers == {}
 
@@ -267,7 +272,7 @@ def test_get_auth_headers_with_token():
         auth=BearerTokenAuth(env_var="API_TOKEN"),
     )
     client = RestApiClient(name="test", config=config)
-    
+
     with patch.dict('os.environ', {'API_TOKEN': 'secret_token'}):
         headers = client._get_auth_headers()
         assert headers == {"Authorization": "Bearer secret_token"}
@@ -280,7 +285,7 @@ def test_get_auth_headers_missing_token():
         auth=BearerTokenAuth(env_var="MISSING_TOKEN"),
     )
     client = RestApiClient(name="test", config=config)
-    
+
     with patch.dict('os.environ', {}, clear=True):
         with pytest.raises(Exception) as exc_info:
             client._get_auth_headers()

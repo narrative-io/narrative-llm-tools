@@ -1,8 +1,10 @@
 import pytest
-from transformers import AutoTokenizer
-from narrative_llm_tools.utils.format_enforcer import get_format_enforcer
-from narrative_llm_tools.tools.json_schema_tools import JsonSchemaTools
 from pydantic import BaseModel
+from transformers import AutoTokenizer
+
+from narrative_llm_tools.tools.json_schema_tools import JsonSchemaTools
+from narrative_llm_tools.utils.format_enforcer import get_format_enforcer
+
 
 class SimpleSchema(BaseModel):
     name: str
@@ -79,19 +81,19 @@ def test_get_format_enforcer_basic(test_schema):
 
     # Execute
     enforcer = get_format_enforcer(tokenizer, schema)
-    
+
     # Assert
     assert callable(enforcer)
-    
+
 def test_format_enforcer_caching(test_schema):
     # Setup
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     schema = JsonSchemaTools.model_validate(test_schema)
-    
+
     # Execute
     enforcer1 = get_format_enforcer(tokenizer, schema)
     enforcer2 = get_format_enforcer(tokenizer, schema)
-    
+
     # Assert
     assert enforcer1 is enforcer2  # Should return cached instance
 
@@ -130,11 +132,11 @@ def test_format_enforcer_different_schemas(test_schema):
                         },
                         "additionalProperties": False
                         }]}})
-    
+
     # Execute
     enforcer1 = get_format_enforcer(tokenizer, schema1)
     enforcer2 = get_format_enforcer(tokenizer, schema2)
-    
+
     # Assert
     assert enforcer1 is not enforcer2  # Should be different instances
 
@@ -146,22 +148,22 @@ def test_format_enforcer_invalid_schema():
             "type": "invalid_type",  # Invalid schema type
             "properties": {}
         })
-        
+
         get_format_enforcer(tokenizer, invalid_schema)
 
 def test_format_enforcer_functionality(test_schema):
     # Setup
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     schema = JsonSchemaTools.model_validate(test_schema)
-    
+
     enforcer = get_format_enforcer(tokenizer, schema)
-    
+
     # Create a simple input tensor
     input_ids = tokenizer.encode('{"', return_tensors='pt')[0]
-    
+
     # Execute
     allowed_tokens = enforcer(0, input_ids)
-    
+
     # Assert
     assert isinstance(allowed_tokens, list)
     assert len(allowed_tokens) > 0

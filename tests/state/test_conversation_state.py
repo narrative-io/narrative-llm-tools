@@ -1,11 +1,16 @@
 import pytest
 from pydantic import ValidationError
-from narrative_llm_tools.tools.json_schema_tools import JsonSchemaTools, ToolSchema, Tool
+
 from narrative_llm_tools.state.conversation_state import (
     ConversationMessage,
     ConversationState,
     ConversationStatus,
 )
+from narrative_llm_tools.tools.json_schema_tools import (
+    JsonSchemaTools,
+    ToolSchema,
+)
+
 
 # Mock JsonSchemaTools for testing
 class MockJsonSchemaTools(JsonSchemaTools):
@@ -277,7 +282,7 @@ def test_has_rest_api_tools():
                     ]
                     }
                 }
-    
+
     state = ConversationState(
         raw_messages=[],
         pipeline_params={},
@@ -349,9 +354,9 @@ def test_handle_tool_response_last_round():
     # Verify state transitioned to WRAP_THINGS_UP since it's the last round
     assert state.status == ConversationStatus.WRAP_THINGS_UP
 
-from unittest import TestCase
-from narrative_llm_tools.state.conversation_state import ConversationState, ConversationMessage, ConversationStatus
 import json
+from unittest import TestCase
+
 
 class TestHandleToolCall(TestCase):
     def setUp(self):
@@ -368,9 +373,9 @@ class TestHandleToolCall(TestCase):
             role="tool_calls",
             content=json.dumps([{"name": "respond_to_user", "parameters": {"response": "Hello"}}])
         )
-        
+
         self.state._handle_tool_call(message)
-        
+
         self.assertEqual(self.state.status, ConversationStatus.COMPLETED)
         self.assertEqual(len(self.state.raw_messages), 1)
 
@@ -380,7 +385,7 @@ class TestHandleToolCall(TestCase):
             role="tool_calls",
             content="invalid json"
         )
-        
+
         with self.assertRaises(ValueError):
             self.state._handle_tool_call(message)
 
@@ -406,8 +411,8 @@ def test_multiple_tool_calls_in_one_message(reset_conversation_state):
             {"name": "rest_api_tool_1", "parameters": {}}
         ])
     )
-    
+
     state._handle_tool_call(message)
-    
+
     assert len(state.raw_messages) == 1
     assert state.status == ConversationStatus.WAITING_TOOL_RESPONSE

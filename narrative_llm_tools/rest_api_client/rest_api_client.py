@@ -1,16 +1,24 @@
-from contextlib import contextmanager
+import json
 import logging
 import os
-import json
 import string
 import time
-from pydantic import BaseModel
-import requests
-from typing import Dict, Any, Generator, Optional
+from collections.abc import Generator
+from contextlib import contextmanager
+from typing import Any
+
 import jmespath
-from narrative_llm_tools.rest_api_client.types import ParameterLocation, RestApiConfig, RestApiResponse
+import requests
+from pydantic import BaseModel
+
+from narrative_llm_tools.rest_api_client.types import (
+    ParameterLocation,
+    RestApiConfig,
+    RestApiResponse,
+)
 
 logger = logging.getLogger(__name__)
+
 
 class RestApiClient(BaseModel):
     """A tool for making REST API calls with configurable parameters and authentication.
@@ -23,6 +31,7 @@ class RestApiClient(BaseModel):
         config (RestApiConfig): Configuration object containing API endpoint details,
             authentication settings, and response handling options.
     """
+
     name: str
     config: RestApiConfig
 
@@ -38,7 +47,7 @@ class RestApiClient(BaseModel):
         RestApiConfig.model_validate(config)
         self.config = config
 
-    def call(self, params: Optional[Dict[str, Any]] = None) -> RestApiResponse:
+    def call(self, params: dict[str, Any] | None = None) -> RestApiResponse:
         """Execute the API call with the provided parameters.
 
         Makes an HTTP request to the configured endpoint, handling parameter placement,
@@ -65,7 +74,10 @@ class RestApiClient(BaseModel):
 
         try:
             url, request_params, request_json = self._build_request_params(self.config.url, params)
-            logger.debug(f"Calling tool {self.name} with parameters {params}, url {url}, request_params {request_params}, request_json {request_json}")
+            logger.debug(
+                f"Calling tool {self.name} with parameters {params}, url {url}, "
+                f"request_params {request_params}, request_json {request_json}"
+            )
 
             with self.log_api_call(params or {}):
                 response = requests.request(
@@ -79,24 +91,26 @@ class RestApiClient(BaseModel):
             if response.headers.get("Content-Type") == "application/json":
                 json_data = response.json()
                 logger.debug(f"Response from tool {self.name}: {json_data}")
-                
+
                 if self.config.query_path:
                     json_data = jmespath.search(self.config.query_path, json_data)
                     logger.info(f"Transformed data from tool {self.name}: {json_data}")
-                    
-                return RestApiResponse(status=response.status_code, type="json", body=json.dumps(json_data))
+
+                return RestApiResponse(
+                    status=response.status_code, type="json", body=json.dumps(json_data)
+                )
             else:
                 logger.debug(f"Response from tool {self.name}: {response.text}")
                 return RestApiResponse(status=response.status_code, type="text", body=response.text)
 
         except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"HTTP request failed: {str(e)}")
+            raise RuntimeError(f"HTTP request failed: {str(e)}") from e
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON response from API: {response.text[:200]}...")
+            raise ValueError(f"Invalid JSON response from API: {response.text[:200]}...") from e
         except Exception as e:
-            raise RuntimeError(f"Failed to call REST API: {str(e)}")
-        
-    def _get_auth_headers(self) -> Dict[str, str]:
+            raise RuntimeError(f"Failed to call REST API: {str(e)}") from e
+
+    def _get_auth_headers(self) -> dict[str, str]:
         """Get authentication headers based on configuration.
 
         Returns:
@@ -109,11 +123,16 @@ class RestApiClient(BaseModel):
         if self.config.auth:
             auth_token = os.getenv(self.config.auth.env_var)
             if not auth_token:
-                raise Exception(f"Missing authentication token: {self.config.auth.env_var} environment variable not set")
+                raise Exception(
+                    f"Missing authentication token: {self.config.auth.env_var} "
+                    "environment variable not set"
+                )
             headers["Authorization"] = f"Bearer {auth_token}"
         return headers
-        
-    def _build_request_params(self, url: str, params: Optional[Dict[str, Any]] = None) -> tuple[str, Dict[str, Any], Optional[Dict[str, Any]]]:
+
+    def _build_request_params(
+        self, url: str, params: dict[str, Any] | None = None
+    ) -> tuple[str, dict[str, Any], dict[str, Any] | None]:
         """Build the request parameters based on the configuration.
 
         Args:
@@ -146,17 +165,17 @@ class RestApiClient(BaseModel):
         if remaining_params:
             if self.config.parameter_location == ParameterLocation.QUERY:
                 request_params = remaining_params
-            
+
             if self.config.parameter_location == ParameterLocation.BODY:
                 request_json = remaining_params
 
         return url, request_params, request_json
-    
+
     @contextmanager
-    def log_api_call(self, params: Dict[str, Any]) -> Generator[None, None, None]:
+    def log_api_call(self, params: dict[str, Any]) -> Generator[None, None, None]:
         start_time = time.time()
         logger.debug(f"Starting API call to {self.name}")
-        
+
         try:
             yield
         except Exception as e:

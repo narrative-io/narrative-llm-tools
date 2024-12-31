@@ -1,9 +1,9 @@
-from enum import Enum
 import json
 import logging
-from typing import Any, ClassVar, Dict, List, Literal, Set
+from enum import Enum
+from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, field_validator
 
 from narrative_llm_tools.rest_api_client.rest_api_client import RestApiClient
 from narrative_llm_tools.tools.json_schema_tools import JsonSchemaTools, Tool
@@ -16,14 +16,16 @@ class ConversationMessage(BaseModel):
     Represents a single message in a conversation. The `role` indicates who/what
     generated the message (e.g. user, assistant, system, tool, etc.).
     """
+
     role: Literal["user", "assistant", "system", "tool_response", "tool_catalog", "tool_calls"]
     content: str
 
 
 class ToolResponse(BaseModel):
     """
-    Represents a structured response from a tool. 
+    Represents a structured response from a tool.
     """
+
     name: str
     content: str
 
@@ -33,11 +35,13 @@ class ConversationStatus(Enum):
     Possible statuses for a ConversationState. The conversation can be running,
     waiting for a tool response, completed, etc.
     """
+
     RUNNING = "running"
     WAITING_TOOL_RESPONSE = "waiting_tool_response"
     COMPLETED = "completed"
     WRAP_THINGS_UP = "wrap_things_up"
     TOOL_ROUNDS_EXCEEDED = "tool_rounds_exceeded"
+
 
 #: Valid status transitions for conversation flow.
 VALID_TRANSITIONS = {
@@ -47,8 +51,14 @@ VALID_TRANSITIONS = {
         ConversationStatus.WAITING_TOOL_RESPONSE,
         ConversationStatus.TOOL_ROUNDS_EXCEEDED,
     ],
-    ConversationStatus.WRAP_THINGS_UP: [ConversationStatus.COMPLETED, ConversationStatus.WAITING_TOOL_RESPONSE],
-    ConversationStatus.WAITING_TOOL_RESPONSE: [ConversationStatus.RUNNING, ConversationStatus.WRAP_THINGS_UP],
+    ConversationStatus.WRAP_THINGS_UP: [
+        ConversationStatus.COMPLETED,
+        ConversationStatus.WAITING_TOOL_RESPONSE,
+    ],
+    ConversationStatus.WAITING_TOOL_RESPONSE: [
+        ConversationStatus.RUNNING,
+        ConversationStatus.WRAP_THINGS_UP,
+    ],
     ConversationStatus.COMPLETED: [],
     ConversationStatus.TOOL_ROUNDS_EXCEEDED: [],
 }
@@ -57,16 +67,17 @@ VALID_TRANSITIONS = {
 class ConversationState(BaseModel):
     """
     Manages the state of a conversation, including messages, tools, status, and
-    allowed transitions. Provides methods to add new messages (tool calls or 
+    allowed transitions. Provides methods to add new messages (tool calls or
     tool responses), validate transitions, and keep track of rounds of tool usage.
     """
-    RESERVED_KEYS: ClassVar[Set[str]] = {"inputs", "tools", "tool_choice", "max_tool_rounds"}
-     
-    raw_messages: List[ConversationMessage]  # renamed from _messages for clarity
+
+    RESERVED_KEYS: ClassVar[set[str]] = {"inputs", "tools", "tool_choice", "max_tool_rounds"}
+
+    raw_messages: list[ConversationMessage]
     max_tool_rounds: int = 5
     tool_choice: Literal["required", "auto", "none"] = "required"
-    tools_catalog: JsonSchemaTools = JsonSchemaTools.only_user_response_tool()  # renamed from _tools
-    pipeline_params: Dict[str, Any]
+    tools_catalog: JsonSchemaTools = JsonSchemaTools.only_user_response_tool()
+    pipeline_params: dict[str, Any]
     status: ConversationStatus = ConversationStatus.RUNNING
 
     model_config = {
@@ -74,7 +85,7 @@ class ConversationState(BaseModel):
     }
 
     @classmethod
-    def from_api_request(cls, request_data: Dict[str, Any]) -> "ConversationState":
+    def from_api_request(cls, request_data: dict[str, Any]) -> "ConversationState":
         """
         Creates a ConversationState instance from an API request dictionary,
         extracting pipeline params and properly instantiating any needed tools.
@@ -129,7 +140,7 @@ class ConversationState(BaseModel):
     #     return value
 
     @field_validator("raw_messages")
-    def validate_messages(cls, value: Any) -> List[ConversationMessage]:
+    def validate_messages(cls, value: Any) -> list[ConversationMessage]:
         """
         Validates that messages is a list of valid ConversationMessage items.
         """
@@ -140,7 +151,7 @@ class ConversationState(BaseModel):
         return value
 
     @property
-    def rest_api_names(self) -> Set[str]:
+    def rest_api_names(self) -> set[str]:
         """
         Returns a set of tool names corresponding to REST API tools in the catalog.
         """
@@ -166,7 +177,7 @@ class ConversationState(BaseModel):
         tool_calls = self.parse_tool_calls_content(content)
         return any(tool.name not in self.rest_api_names for tool in tool_calls)
 
-    def only_called_rest_api_tools(self, tool_calls: List[Tool]) -> bool:
+    def only_called_rest_api_tools(self, tool_calls: list[Tool]) -> bool:
         """
         Returns True if all called tools are in the set of known REST API tool names.
         """
@@ -183,14 +194,14 @@ class ConversationState(BaseModel):
         tool_calls = self.parse_tool_calls_content(content)
         return any(tool.name in self.rest_api_names for tool in tool_calls)
 
-    def parse_tool_calls_content(self, content: str) -> List[Tool]:
+    def parse_tool_calls_content(self, content: str) -> list[Tool]:
         """
         Parses a JSON list of tool calls from string content and returns them as a list of `Tool`.
         """
         try:
             tool_calls_data = json.loads(content)
-        except json.JSONDecodeError:
-            raise ValueError("Tool calls content must be valid JSON.")
+        except json.JSONDecodeError as e:
+            raise ValueError("Tool calls content must be valid JSON.") from e
 
         if not isinstance(tool_calls_data, list):
             raise ValueError("Tool calls must be a list of tool call objects.")
@@ -209,17 +220,19 @@ class ConversationState(BaseModel):
 
     def must_respond(self) -> bool:
         """
-        Returns True if we have hit exactly max_tool_rounds, indicating the user must be responded to.
+        Returns True if we have hit exactly max_tool_rounds, indicating the user
+        must be responded to.
         """
         return self.tool_calls_count == self.max_tool_rounds
 
     def can_respond(self) -> bool:
         """
-        Returns True if there is at least one non-REST API tool available (e.g., to respond to the user).
+        Returns True if there is at least one non-REST API tool available
+        (e.g., to respond to the user).
         """
         return self._has_non_rest_tool()
 
-    def get_rest_api_catalog(self) -> Dict[str, RestApiClient]:
+    def get_rest_api_catalog(self) -> dict[str, RestApiClient]:
         """Returns all REST API tools from the current catalog."""
         return self.tools_catalog.get_rest_apis()
 
@@ -261,7 +274,7 @@ class ConversationState(BaseModel):
             self._handle_tool_response(message)
         else:
             raise ValueError(f"Invalid message role: {message.role}")
-        
+
         logger.info(f"Conversation state after adding message: {self}")
 
     def _handle_tool_call(self, message: ConversationMessage) -> None:
@@ -285,7 +298,7 @@ class ConversationState(BaseModel):
         Handles adding a tool response message and updating state accordingly.
         """
         self.raw_messages.append(message)
-        
+
         if self.status == ConversationStatus.WAITING_TOOL_RESPONSE:
             if self.last_round():
                 self.transition_to(ConversationStatus.WRAP_THINGS_UP)
@@ -298,15 +311,13 @@ class ConversationState(BaseModel):
         """
         allowed_transitions = VALID_TRANSITIONS.get(self.status, [])
         if new_status not in allowed_transitions:
-            raise ValueError(
-                f"Invalid transition from {self.status.value} to {new_status.value}."
-            )
+            raise ValueError(f"Invalid transition from {self.status.value} to {new_status.value}.")
         logger.info(f"Transitioning from {self.status.value} to {new_status.value}")
         self.status = new_status
         self.update_current_tools()
 
     @property
-    def messages(self) -> List[ConversationMessage]:
+    def messages(self) -> list[ConversationMessage]:
         """
         Returns the conversation's messages, automatically injecting:
           - A default system message at the start if one doesn't exist.
@@ -324,12 +335,16 @@ class ConversationState(BaseModel):
             (i for i, msg in enumerate(self.raw_messages) if msg.role == "system"),
             None,
         )
-        
-        if system_msg_index is None: # This should never happen
+
+        if system_msg_index is None:  # This should never happen
             return self.raw_messages
-        
+
         # If system message is found, we insert the catalog message right after it.
-        return self.raw_messages[: system_msg_index + 1] + [self._tool_catalog_message()] + self.raw_messages[system_msg_index + 1 :]
+        return (
+            self.raw_messages[: system_msg_index + 1]
+            + [self._tool_catalog_message()]
+            + self.raw_messages[system_msg_index + 1 :]
+        )
 
     def _remove_rest_api_tools(self) -> None:
         """
@@ -347,19 +362,27 @@ class ConversationState(BaseModel):
         if len(self.tools_catalog.items.anyOf) == 0:
             self.tools_catalog = JsonSchemaTools.only_user_response_tool()
         elif self.status == ConversationStatus.WRAP_THINGS_UP:
-            logger.info(f"Removing rest API tools.  We started with {len(self.tools_catalog.items.anyOf)} tools.")
+            logger.info(
+                "Removing rest API tools.  ",
+                "We started with {len(self.tools_catalog.items.anyOf)} tools.",
+            )
             self._remove_rest_api_tools()
-            logger.info(f"After removing rest API tools, we have {len(self.tools_catalog.items.anyOf)} tools.")
+            logger.info(
+                "After removing rest API tools, ",
+                "we have {len(self.tools_catalog.items.anyOf)} tools.",
+            )
             if len(self.tools_catalog.items.anyOf) == 0:
                 self.tools_catalog = JsonSchemaTools.only_user_response_tool()
         elif self.status == ConversationStatus.RUNNING:
             if not self.can_respond():
                 self.tools_catalog = self.tools_catalog.with_user_response_tool()
-        elif self.status in [ConversationStatus.WAITING_TOOL_RESPONSE, 
-                        ConversationStatus.COMPLETED,
-                        ConversationStatus.TOOL_ROUNDS_EXCEEDED]:
-           pass
+        elif self.status in [
+            ConversationStatus.WAITING_TOOL_RESPONSE,
+            ConversationStatus.COMPLETED,
+            ConversationStatus.TOOL_ROUNDS_EXCEEDED,
+        ]:
+            pass
         else:
             raise ValueError(f"Invalid state for retrieving tools: {self.status}")
-        
+
         return self.tools_catalog
