@@ -172,13 +172,19 @@ class ConversationState(BaseModel):
         a response to the user (since REST API tools are for data gathering only).
         """
         tool_calls = self.parse_tool_calls_content(content)
-        return any(tool.name not in self.rest_api_names for tool in tool_calls)
+        all_rest_api_tools = all(tool.name in self.rest_api_names for tool in tool_calls)
+
+        return not all_rest_api_tools
 
     def only_called_rest_api_tools(self, tool_calls: list[Tool]) -> bool:
         """
         Returns True if all called tools are in the set of known REST API tool names.
         """
         return all(tool.name in self.rest_api_names for tool in tool_calls)
+
+    def _is_user_response_behavior(self, behavior_type: str) -> bool:
+        """Check if the behavior type is meant to return something to the user."""
+        return behavior_type in ["return_response_to_user", "return_request_to_user"]
 
     def _has_non_rest_tool(self) -> bool:
         """
