@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: lint-format-test
+        name: Lint, Format, and Test
+        entry: make pre-commit
+        language: system
+        pass_filenames: false
+        always_run: true
