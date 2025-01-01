@@ -62,7 +62,7 @@ class RestApiConfig(BaseModel):
     url: str
     method: HttpMethod
     auth: BearerTokenAuth | None = None
-    response_behavior: dict[int | Literal["default"], Behavior] | None = {
+    response_behavior: dict[int | Literal["default"], Behavior] = {
         "default": ReturnToLlmBehavior(llm_response=None),
     }
     query_path: str | None = None
