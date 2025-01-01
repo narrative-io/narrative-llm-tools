@@ -49,3 +49,6 @@ dmypy.json
 # UV package manager
 .uv/
 .venv.uv/
+
+# ruff
+.ruff_cache/

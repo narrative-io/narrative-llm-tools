@@ -136,15 +136,6 @@ class ConversationState(BaseModel):
             raise ValueError("max_tool_rounds must be a positive integer.")
         return value
 
-    # @field_validator("tool_choice")
-    # def validate_tool_choice(cls, value, info):
-    #     """
-    #     Ensures that if tool_choice is 'required', then tools_catalog is not None.
-    #     """
-    #     if value == "required" and not info.data.get("tools_catalog"):
-    #         raise ValueError("tool_choice cannot be 'required' when no tools are provided.")
-    #     return value
-
     @field_validator("raw_messages")
     def validate_messages(cls, value: Any) -> list[ConversationMessage]:
         """
@@ -369,12 +360,12 @@ class ConversationState(BaseModel):
             self.tools_catalog = JsonSchemaTools.only_user_response_tool()
         elif self.status == ConversationStatus.WRAP_THINGS_UP:
             logger.info(
-                "Removing rest API tools.  ",
+                "Removing rest API tools.  "
                 "We started with {len(self.tools_catalog.items.anyOf)} tools.",
             )
             self._remove_rest_api_tools()
             logger.info(
-                "After removing rest API tools, ",
+                "After removing rest API tools, "
                 "we have {len(self.tools_catalog.items.anyOf)} tools.",
             )
             if len(self.tools_catalog.items.anyOf) == 0:
