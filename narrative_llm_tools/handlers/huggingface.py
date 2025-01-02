@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from torch import Tensor
 from transformers import pipeline  # type: ignore
 
-from narrative_llm_tools.rest_api_client.types import RestApiResponse
+from narrative_llm_tools.rest_api_client.types import RestApiResponse, ReturnToLlmBehavior
 from narrative_llm_tools.state.conversation_state import (
     ConversationMessage,
     ConversationState,
@@ -343,8 +343,8 @@ class EndpointHandler:
                 api_client = rest_api_catalog[tool.name]
                 api_response: RestApiResponse = api_client.call(tool.parameters)
                 api_client_behavior = (
-                    api_client.config.response_behavior.get(api_response.status)
-                    if api_client.config.response_behavior.get(api_response.status)
+                    api_client.config.response_behavior.get(str(api_response.status))
+                    if api_client.config.response_behavior.get(str(api_response.status))
                     else api_client.config.response_behavior.get("default")
                 )
 
@@ -352,11 +352,17 @@ class EndpointHandler:
                 behavior_type = api_client_behavior.behavior_type if api_client_behavior else None
 
                 if (
-                    api_response.type == "json"
-                    and behavior_type
+                    behavior_type
                     and behavior_type == "return_to_llm"
                 ):
-                    tool_responses.append(ToolResponse(name=tool.name, content=api_response.body))
+                    llm_response_behavior: ReturnToLlmBehavior = api_client_behavior  # type: ignore
+
+                    response = (
+                        llm_response_behavior.llm_response
+                        if llm_response_behavior.llm_response
+                        else api_response.body
+                    )
+                    tool_responses.append(ToolResponse(name=tool.name, content=response))
                 elif (
                     api_response.type == "json"
                     and behavior_type
