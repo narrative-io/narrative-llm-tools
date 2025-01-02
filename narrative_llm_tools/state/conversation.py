@@ -223,20 +223,25 @@ def validate_conversation_object(obj: Any, line_number: int) -> list[str]:
 class ValidationResult:
     line_number: int
     errors: list[str]
+    original_line: str
 
 
 def validate_line(args: tuple[str, int]) -> ValidationResult:
     line, line_number = args
     if not line.strip():
-        return ValidationResult(line_number, [f"Line {line_number}: Empty line is not allowed."])
+        return ValidationResult(
+            line_number,
+            [f"Line {line_number}: Empty line is not allowed."],
+            line,
+        )
 
     try:
         conversation_obj = json.loads(line)
     except json.JSONDecodeError as e:
-        return ValidationResult(line_number, [f"Line {line_number}: Invalid JSON - {str(e)}"])
+        return ValidationResult(line_number, [f"Line {line_number}: Invalid JSON - {str(e)}"], line)
 
     line_errors = validate_conversation_object(conversation_obj, line_number)
-    return ValidationResult(line_number, line_errors)
+    return ValidationResult(line_number, line_errors, line)
 
 
 def extract_enumerated_names(tool_catalog_schema: Mapping[str, Any]) -> set[str]:

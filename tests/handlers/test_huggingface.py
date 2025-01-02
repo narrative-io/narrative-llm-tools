@@ -9,14 +9,12 @@ from narrative_llm_tools.state.conversation_state import (
     ConversationStatus,
 )
 from narrative_llm_tools.tools import Tool
-from narrative_llm_tools.rest_api_client.types import RestApiResponse
 from narrative_llm_tools.handlers.huggingface import (
     EndpointHandler,
     HandlerResponse,
     PipelineConfigurationError,
     PipelineExecutionError,
     ModelOutputError,
-    ToolConfigurationError,
 )
 
 

@@ -16,6 +16,7 @@ def main() -> None:
     )
     parser.add_argument("file", help="Path to the JSONL file to validate.")
     parser.add_argument("--threads", type=int, default=4, help="Number of threads to use")
+    parser.add_argument("--clean", type=str, help="Output validated lines to specified file")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress progress bar")
 
     args = parser.parse_args()
@@ -56,6 +57,12 @@ def main() -> None:
 
         # Collect errors from results
         errors = [error for result in results for error in result.errors]
+
+        if args.clean:
+            with open(args.clean, "w") as f:
+                for result in results:
+                    if not result.errors:
+                        f.write(result.original_line + "\n")
 
     if errors:
         print("Validation FAILED.\n")
