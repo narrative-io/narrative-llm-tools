@@ -348,6 +348,8 @@ class EndpointHandler:
                     else api_client.config.response_behavior.get("default")
                 )
 
+                logger.info(f"API response: {api_response}, behavior: {api_client_behavior}")
+
                 if api_response.type == "json" and api_client_behavior == "return_to_llm":
                     tool_responses.append(ToolResponse(name=tool.name, content=api_response.body))
                 elif (
