@@ -285,6 +285,7 @@ class ConversationState(BaseModel):
         Handles adding a tool_call message and performing relevant state transitions.
         """
         tool_calls = self.parse_tool_calls_content(message.content)
+        logger.info(f"Handling tool call: {message}")
         self.raw_messages.append(message)
 
         if self.responded_to_user(message.content):
@@ -300,6 +301,7 @@ class ConversationState(BaseModel):
         """
         Handles adding a tool response message and updating state accordingly.
         """
+        logger.info(f"Handling tool response: {message}")
         self.raw_messages.append(message)
 
         if self.status == ConversationStatus.WAITING_TOOL_RESPONSE:
