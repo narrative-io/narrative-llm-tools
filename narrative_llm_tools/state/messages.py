@@ -45,6 +45,10 @@ class BaseMessage(BaseModel):
         if isinstance(v, str):
             return v
         raise ValueError(f"Message 'content' must be a string, got {type(v)}")
+    
+    model_config = {
+        'extra': 'forbid'
+    }
 
 
 class SystemMessage(BaseMessage):
@@ -121,3 +125,7 @@ Message = Annotated[
 
 class MessageWrapper(BaseModel):
     message: Message
+
+    model_config = {
+        'extra': 'forbid'
+    }

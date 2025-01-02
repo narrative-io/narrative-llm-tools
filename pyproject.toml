@@ -27,6 +27,7 @@ test = [
     "requests-mock>=1.12.1",
     "pytest-cov>=6.0.0",
     "torch==2.5.1+cpu",
+    "accelerate>=0.26.0",
 ]
 cpu = [
     "torch==2.5.1+cpu",
