@@ -138,7 +138,7 @@ class EndpointHandler:
         )
         return pipe  # type: ignore
 
-    def __call__(self, data: dict[str, Any]) -> HandlerResponse:
+    def __call__(self, data: dict[str, Any]) -> dict[str, Any]:
         """
         Generate model output given a conversation and optional tools/parameters.
 
@@ -294,7 +294,7 @@ class EndpointHandler:
                 if not isinstance(tool_call, dict):
                     raise ModelOutputError("Model output is not a list of tool calls.")
 
-            return HandlerResponse(tool_calls=return_msg, warnings=None)
+            return HandlerResponse(tool_calls=return_msg, warnings=None).model_dump()
 
         except (
             ValidationError,

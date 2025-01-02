@@ -81,10 +81,10 @@ def test_endpoint_handler_call_basic(endpoint_handler: EndpointHandler):
 
     # Since our mock pipeline returns the JSON with "test_tool",
     # we expect the final output to be a list with one dict for "test_tool".
-    assert isinstance(result.tool_calls, list)
-    assert len(result.tool_calls) == 1
-    assert result.tool_calls[0]["name"] == "test_tool"
-    assert result.tool_calls[0]["parameters"] == {}
+    assert isinstance(result["tool_calls"], list)
+    assert len(result["tool_calls"]) == 1
+    assert result["tool_calls"][0]["name"] == "test_tool"
+    assert result["tool_calls"][0]["parameters"] == {}
 
 
 def test_endpoint_handler_call_with_logging(endpoint_handler: EndpointHandler, caplog):
@@ -156,7 +156,7 @@ def test_endpoint_handler_empty_output(endpoint_handler: EndpointHandler):
 
     result = endpoint_handler(data)
     # Expect an empty list of tool calls
-    assert result == HandlerResponse(tool_calls=[], warnings=None)
+    assert result == HandlerResponse(tool_calls=[], warnings=None).model_dump()
 
 
 def test_endpoint_handler_pipeline_execution_error(endpoint_handler: EndpointHandler):
