@@ -349,17 +349,25 @@ class EndpointHandler:
                 )
 
                 logger.info(f"API response: {api_response}, behavior: {api_client_behavior}")
+                behavior_type = api_client_behavior.behavior_type if api_client_behavior else None
 
-                if api_response.type == "json" and api_client_behavior == "return_to_llm":
+                if (
+                    api_response.type == "json"
+                    and behavior_type
+                    and behavior_type == "return_to_llm"
+                ):
                     tool_responses.append(ToolResponse(name=tool.name, content=api_response.body))
                 elif (
-                    api_response.type == "json" and api_client_behavior == "return_response_to_user"
+                    api_response.type == "json"
+                    and behavior_type
+                    and behavior_type == "return_response_to_user"
                 ):
                     tool_responses.append(ToolResponse(name=tool.name, content=api_response.body))
                     return_to_user = True
                 elif (
                     api_response.type == "json"
-                    and api_client_behavior == "return_request_to_user"
+                    and behavior_type
+                    and behavior_type == "return_request_to_user"
                     and api_response.request
                 ):
                     tool_responses.append(
