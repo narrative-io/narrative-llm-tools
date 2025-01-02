@@ -38,18 +38,24 @@ class Behavior(BaseModel):
 
 class ReturnToLlmBehavior(Behavior):
     behavior_type: Literal["return_to_llm"] = "return_to_llm"
-    llm_response: str
+    llm_response: str | None = None
 
 
-class ReturnToUserBehavior(Behavior):
-    behavior_type: Literal["return_to_user"] = "return_to_user"
-    user_response: str
+class ReturnResponseToUserBehavior(Behavior):
+    behavior_type: Literal["return_response_to_user"] = "return_response_to_user"
+    user_response: str | None = None
+
+
+class ReturnRequestToUserBehavior(Behavior):
+    behavior_type: Literal["return_request_to_user"] = "return_request_to_user"
+    user_response: str | None = None
 
 
 class RestApiResponse(BaseModel):
     status: int
     type: Literal["json", "text"]
     body: str
+    request: str | None = None
 
 
 class RestApiConfig(BaseModel):
@@ -57,9 +63,7 @@ class RestApiConfig(BaseModel):
     method: HttpMethod
     auth: BearerTokenAuth | None = None
     response_behavior: dict[int | Literal["default"], Behavior] | None = {
-        "default": ReturnToLlmBehavior(
-            llm_response="The resource you " "are looking for was not found."
-        ),
+        "default": ReturnToLlmBehavior(llm_response=None),
     }
     query_path: str | None = None
     parameter_location: ParameterLocation | None = None

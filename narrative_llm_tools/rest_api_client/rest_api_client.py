@@ -97,11 +97,19 @@ class RestApiClient(BaseModel):
                     logger.info(f"Transformed data from tool {self.name}: {json_data}")
 
                 return RestApiResponse(
-                    status=response.status_code, type="json", body=json.dumps(json_data)
+                    status=response.status_code,
+                    type="json",
+                    body=json.dumps(json_data),
+                    request=json.dumps(request_json),
                 )
             else:
                 logger.debug(f"Response from tool {self.name}: {response.text}")
-                return RestApiResponse(status=response.status_code, type="text", body=response.text)
+                return RestApiResponse(
+                    status=response.status_code,
+                    type="text",
+                    body=response.text,
+                    request=json.dumps(request_json),
+                )
 
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"HTTP request failed: {str(e)}") from e
