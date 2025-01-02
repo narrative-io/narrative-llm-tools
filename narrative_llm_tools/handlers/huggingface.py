@@ -294,7 +294,7 @@ class EndpointHandler:
                 if not isinstance(tool_call, dict):
                     raise ModelOutputError("Model output is not a list of tool calls.")
 
-            return HandlerResponse(tool_calls=return_msg, warnings=None).model_dump()
+            return HandlerResponse(tool_calls=return_msg, warnings=None).model_dump(exclude_none=True)
 
         except (
             ValidationError,
@@ -330,6 +330,7 @@ class EndpointHandler:
         """Execute tool calls and update conversation state."""
         logger.debug(f"Executing tool calls: {tool_calls}")
         rest_api_catalog = state.get_rest_api_catalog()
+        logger.info(f"Rest API catalog: {rest_api_catalog}")
 
         if not rest_api_catalog:
             logger.info("No rest API catalog is available, skipping all tool calls.")

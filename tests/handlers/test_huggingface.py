@@ -156,7 +156,7 @@ def test_endpoint_handler_empty_output(endpoint_handler: EndpointHandler):
 
     result = endpoint_handler(data)
     # Expect an empty list of tool calls
-    assert result == HandlerResponse(tool_calls=[], warnings=None).model_dump()
+    assert result == HandlerResponse(tool_calls=[], warnings=None).model_dump(exclude_none=True)
 
 
 def test_endpoint_handler_pipeline_execution_error(endpoint_handler: EndpointHandler):
