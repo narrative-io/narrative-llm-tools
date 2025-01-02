@@ -359,8 +359,8 @@ class EndpointHandler:
                     llm_response_behavior: ReturnToLlmBehavior = api_client_behavior  # type: ignore
 
                     response = (
-                        llm_response_behavior.llm_response
-                        if llm_response_behavior.llm_response
+                        llm_response_behavior.response
+                        if llm_response_behavior.response
                         else api_response.body
                     )
                     tool_responses.append(ToolResponse(name=tool.name, content=response))

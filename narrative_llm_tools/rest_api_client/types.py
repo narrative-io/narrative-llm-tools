@@ -28,6 +28,7 @@ class BearerTokenAuth(BaseModel):
 
 class Behavior(BaseModel):
     behavior_type: str
+    response: str | None = None
 
     def __hash__(self) -> int:
         return hash(self.behavior_type)
@@ -38,17 +39,17 @@ class Behavior(BaseModel):
 
 class ReturnToLlmBehavior(Behavior):
     behavior_type: Literal["return_to_llm"] = "return_to_llm"
-    llm_response: str | None = None
+    response: str | None = None
 
 
 class ReturnResponseToUserBehavior(Behavior):
     behavior_type: Literal["return_response_to_user"] = "return_response_to_user"
-    user_response: str | None = None
+    response: str | None = None
 
 
 class ReturnRequestToUserBehavior(Behavior):
     behavior_type: Literal["return_request_to_user"] = "return_request_to_user"
-    user_response: str | None = None
+    response: str | None = None
 
 
 class RestApiResponse(BaseModel):
@@ -63,7 +64,7 @@ class RestApiConfig(BaseModel):
     method: HttpMethod
     auth: BearerTokenAuth | None = None
     response_behavior: dict[str | Literal["default"], Behavior] = {
-        "default": ReturnToLlmBehavior(llm_response=None),
+        "default": ReturnToLlmBehavior(response=None),
     }
     query_path: str | None = None
     parameter_location: ParameterLocation | None = None
