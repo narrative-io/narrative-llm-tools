@@ -8,7 +8,7 @@ from pydantic import BaseModel, field_validator
 from narrative_llm_tools.rest_api_client.rest_api_client import RestApiClient
 from narrative_llm_tools.tools.json_schema_tools import JsonSchemaTools, Tool
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("narrative-llm-tools")
 
 
 class ConversationMessage(BaseModel):

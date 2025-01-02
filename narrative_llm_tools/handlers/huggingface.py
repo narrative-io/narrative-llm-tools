@@ -17,7 +17,7 @@ from narrative_llm_tools.state.conversation_state import (
 from narrative_llm_tools.tools import Tool
 from narrative_llm_tools.utils.format_enforcer import get_format_enforcer
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("narrative-llm-tools")
 logger.setLevel(logging.WARNING)
 
 
