@@ -35,7 +35,6 @@ class ModelConfig(BaseModel):
     path: str
     max_new_tokens: int = 4096
     device_map: str = "auto"
-    low_cpu_mem_usage: bool = False
     begin_token: str = "<|begin_of_text|>"
     eot_token: str = "<|eot_id|>"
 
@@ -112,14 +111,14 @@ class AuthenticationError(EndpointError):
 
 
 class EndpointHandler:
-    def __init__(self, path: str = "", low_cpu_mem_usage: bool = False) -> None:
+    def __init__(self, path: str = "") -> None:
         """
         Initialize the EndpointHandler with the provided model path.
 
         Args:
             path (str, optional): The path or identifier of the model. Defaults to "".
         """
-        self.config = ModelConfig(path=path, low_cpu_mem_usage=low_cpu_mem_usage)
+        self.config = ModelConfig(path=path)
 
         try:
             self.pipeline: Pipeline = self._create_pipeline()
@@ -136,7 +135,6 @@ class EndpointHandler:
             model=self.config.path,
             max_new_tokens=self.config.max_new_tokens,
             device_map=self.config.device_map,
-            low_cpu_mem_usage=self.config.low_cpu_mem_usage,
         )
         return pipe  # type: ignore
 

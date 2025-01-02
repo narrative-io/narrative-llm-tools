@@ -44,7 +44,7 @@ def endpoint_handler(mock_pipeline: MagicMock, mock_tokenizer: MagicMock) -> End
     """
     Fixture for creating an EndpointHandler with mock dependencies.
     """
-    handler = EndpointHandler(path="gpt2", low_cpu_mem_usage=True)
+    handler = EndpointHandler(path="gpt2")
     
     # Overwrite the pipeline created in `_create_pipeline()` with our mock.
     handler.pipeline = mock_pipeline
