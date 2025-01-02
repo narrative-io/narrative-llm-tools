@@ -1,7 +1,7 @@
 import json
 import logging
 from collections.abc import Hashable
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Optional, Protocol
 
 from pydantic import BaseModel
 from torch import Tensor
@@ -20,6 +20,12 @@ from narrative_llm_tools.utils.format_enforcer import get_format_enforcer
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
+class HandlerResponse(BaseModel):
+    """Response from the handler."""
+
+    tool_calls: list[dict[str, Any]]
+    warnings: Optional[list[str]]
+
 
 class ModelConfig(BaseModel):
     """Configuration for the model and tokenizer."""
@@ -28,6 +34,7 @@ class ModelConfig(BaseModel):
     path: str
     max_new_tokens: int = 4096
     device_map: str = "auto"
+    low_cpu_mem_usage: bool = False
     begin_token: str = "<|begin_of_text|>"
     eot_token: str = "<|eot_id|>"
 
@@ -104,14 +111,14 @@ class AuthenticationError(EndpointError):
 
 
 class EndpointHandler:
-    def __init__(self, path: str = "") -> None:
+    def __init__(self, path: str = "", low_cpu_mem_usage: bool = False) -> None:
         """
         Initialize the EndpointHandler with the provided model path.
 
         Args:
             path (str, optional): The path or identifier of the model. Defaults to "".
         """
-        self.config = ModelConfig(path=path)
+        self.config = ModelConfig(path=path, low_cpu_mem_usage=low_cpu_mem_usage)
 
         try:
             self.pipeline: Pipeline = self._create_pipeline()
@@ -128,10 +135,11 @@ class EndpointHandler:
             model=self.config.path,
             max_new_tokens=self.config.max_new_tokens,
             device_map=self.config.device_map,
+            low_cpu_mem_usage=self.config.low_cpu_mem_usage,
         )
         return pipe  # type: ignore
 
-    def __call__(self, data: dict[str, Any]) -> list[dict[str, Any]]:
+    def __call__(self, data: dict[str, Any]) -> HandlerResponse:
         """
         Generate model output given a conversation and optional tools/parameters.
 
@@ -287,7 +295,7 @@ class EndpointHandler:
                 if not isinstance(tool_call, dict):
                     raise ModelOutputError("Model output is not a list of tool calls.")
 
-            return return_msg
+            return HandlerResponse(tool_calls=return_msg, warnings=None)
 
         except (
             ValidationError,

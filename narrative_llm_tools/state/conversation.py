@@ -5,6 +5,7 @@ from functools import lru_cache
 from typing import Any
 
 import jsonschema
+from jsonschema import SchemaError
 from pydantic import BaseModel, ValidationError, model_validator
 
 from narrative_llm_tools.state.messages import Message, MessageWrapper, parse_json_array
@@ -15,26 +16,31 @@ class Conversation(BaseModel):
 
     @model_validator(mode="after")
     def validate_conversation_structure(self) -> "Conversation":
+        all_errors = []
+
         conv = self.conversations
 
         if len(conv) < 3:
-            raise ValueError(f"'conversation' must have at least 3 messages. Found {len(conv)}.")
+            all_errors.append(
+                f"'conversation' must have at least 3 messages. Found {len(conv)}."
+            )
 
         system_count = 0
         tool_catalog_count = 0
         last_role = None
         found_system = False
-        tool_catalog_schema = None  # We'll store parsed JSON from tool_catalog's content
-        assistant_call_indices = []  # track indices of assistant/tool_call messages
+        tool_catalog_schema = None  
+        assistant_call_indices = []
         user_count = 0
 
         for i, message in enumerate(conv):
             msg_errors = []
 
             try:
-                _ = MessageWrapper(message=message).message
+                _ = MessageWrapper(message=message)
             except ValidationError as e:
                 msg_errors.append(f"Message is not valid: {e}")
+                all_errors.extend(msg_errors)
                 continue
 
             role = message.from_
@@ -128,63 +134,34 @@ class Conversation(BaseModel):
                     _, prev_arr = parse_json_array(prev_content, tool_catalog_schema)
 
                     if len(arr) != len(prev_arr):
-                        msg_errors.append(
-                            "tool_response array length must match the preceding "
-                            "'assistant'/'tool_call' array.",
-                        )
+                        msg_errors.append("tool_response array length must match the preceding 'assistant'/'tool_call' array.")
                     else:
-                        # Validate each response object structure and name matching
-                        for idx, (response, prev_call) in enumerate(
-                            zip(arr, prev_arr, strict=False)
-                        ):
-                            # Check response structure
-                            if not isinstance(response, dict):
-                                msg_errors.append(f"Response at index {idx} must be an object")
+                        for idx, (response, prev_call) in enumerate(zip(arr, prev_arr)):
+                            structure_errors = validate_tool_response_structure(response, idx)
+                            if structure_errors:
+                                msg_errors.extend(structure_errors)
                                 continue
+                            
+                            matching_errors = validate_tool_response_matching(response, prev_call, idx)
+                            msg_errors.extend(matching_errors)
 
-                            if set(response.keys()) != {"name", "content"}:
-                                msg_errors.append(
-                                    f"Response at index {idx} must have "
-                                    "exactly 'name' and 'content' fields",
-                                )
-                                continue
-
-                            if not isinstance(response["name"], str) or not isinstance(
-                                response["content"], str
-                            ):
-                                msg_errors.append(
-                                    f"Response at index {idx}: 'name' "
-                                    "and 'content' must be strings",
-                                )
-                                continue
-
-                            # Check name matches the corresponding tool call
-                            if response["name"] != prev_call.get("name"):
-                                msg_errors.append(
-                                    f"Response at index {idx}: name '{response['name']}' "
-                                    "does not match "
-                                    f"tool call name '{prev_call.get('name')}'",
-                                )
-
-            # Store last_role for consecutive checks
+            all_errors.extend(msg_errors)
             last_role = role
-
-        # Post-pass checks:
 
         # Must have exactly 1 tool_catalog
         if tool_catalog_count == 0:
-            msg_errors.append("Missing required 'tool_catalog' message.")
+            all_errors.append("Missing required 'tool_catalog' message.")
         elif tool_catalog_count > 1:
             # Already reported above, but let's ensure we mention it here as well
             pass
 
         # Must appear at least one user message
         if user_count == 0:
-            msg_errors.append("Must have at least one 'user' message.")
+            all_errors.append("Must have at least one 'user' message.")
 
         # Must end with assistant or tool_call
         if conv and conv[-1].from_ not in ("assistant", "tool_calls"):
-            msg_errors.append("The conversation must end with 'assistant' or 'tool_call'.")
+            all_errors.append("The conversation must end with 'assistant' or 'tool_call'.")
 
         # If we have a valid tool_catalog schema, attempt to do a deeper validation:
         if tool_catalog_schema:
@@ -196,23 +173,14 @@ class Conversation(BaseModel):
                     # Already reported above, but let's skip schema validation here
                     continue
 
-                # Validate each item in arr against the tool_catalog schema
-                # For simplicity, we’ll just do minimal checks to illustrate the idea:
-                #
-                #   - Each array element must be an object with "name" and "parameters"
-                #   - "name" must match one of the enumerated tool names in the JSON Schema
-                #   - "parameters" must be an object
-                #
-                # If you need to fully validate against multiple anyOf branches,
-                # you’d typically use `jsonschema` with the parsed schema.
                 enumerated_names = extract_enumerated_names(tool_catalog_schema)
 
                 for idx, el in enumerate(arr):
                     if not isinstance(el, dict):
-                        msg_errors.append(f"Message {i}: array element {idx} must be an object.")
+                        all_errors.append(f"Message {i}: array element {idx} must be an object.")
                         continue
                     if set(el.keys()) != {"name", "parameters"}:
-                        msg_errors.append(
+                        all_errors.append(
                             f"Message {i}: array element {idx} "
                             "must have exactly 'name' and 'parameters'.",
                         )
@@ -220,17 +188,17 @@ class Conversation(BaseModel):
                     if "name" in el:
                         name_val = el["name"]
                         if name_val not in enumerated_names:
-                            msg_errors.append(
+                            all_errors.append(
                                 f"Message {i}: array element {idx} has "
                                 f"'name'='{name_val}' not in {enumerated_names}.",
                             )
                     # Check parameters
                     if "parameters" in el:
                         if not isinstance(el["parameters"], dict):
-                            msg_errors.append(f"Message {i}: 'parameters' must be an object.")
+                            all_errors.append(f"Message {i}: 'parameters' must be an object.")
 
-        if msg_errors:
-            raise ValueError(msg_errors)
+        if all_errors:
+            raise ValueError(all_errors)
 
         return self
 
@@ -316,6 +284,40 @@ def validate_tool_catalog_schema(schema_str: str) -> tuple[Any, list[str]]:
         return schema, []
     except json.JSONDecodeError:
         errors.append("'tool_catalog' message 'content' must be valid JSON (a JSON Schema).")
-    except ValidationError as e:
+    except SchemaError as e:
         errors.append(f"'tool_catalog' message contains invalid JSON Schema: {str(e)}")
+    except Exception as e:
+        errors.append(f"Unexpected error validating 'tool_catalog' message: {str(e)}")
     return None, errors
+
+
+def validate_tool_response_structure(response: dict, idx: int) -> list[str]:
+    """Validate the structure of a single tool response object."""
+    errors = []
+    
+    if not isinstance(response, dict):
+        errors.append(f"Response at index {idx} must be an object")
+        return errors
+
+    if set(response.keys()) != {"name", "content"}:
+        errors.append(
+            f"Response at index {idx} must have exactly 'name' and 'content' fields"
+        )
+        return errors
+
+    if not isinstance(response["name"], str) or not isinstance(response["content"], str):
+        errors.append(
+            f"Response at index {idx}: 'name' and 'content' must be strings"
+        )
+    
+    return errors
+
+def validate_tool_response_matching(response: dict, prev_call: dict, idx: int) -> list[str]:
+    """Validate that a tool response matches its corresponding tool call."""
+    errors = []
+    if response["name"] != prev_call.get("name"):
+        errors.append(
+            f"Response at index {idx}: name '{response['name']}' does not match "
+            f"tool call name '{prev_call.get('name')}'"
+        )
+    return errors
