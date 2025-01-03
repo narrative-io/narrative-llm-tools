@@ -305,10 +305,6 @@ def validate_tool_response_structure(response: dict[str, Any], idx: int) -> list
     """Validate the structure of a single tool response object."""
     errors = []
 
-    if not isinstance(response, dict):
-        errors.append(f"Response at index {idx} must be an object")  # type: ignore[unreachable]
-        return errors
-
     if set(response.keys()) != {"name", "content"}:
         errors.append(f"Response at index {idx} must have exactly 'name' and 'content' fields")
         return errors

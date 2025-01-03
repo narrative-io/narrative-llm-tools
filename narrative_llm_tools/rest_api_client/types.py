@@ -77,7 +77,7 @@ class RestApiConfig(BaseModel):
                 data["parameter_location"] = ParameterLocation.BODY
             elif data.get("method") == HttpMethod.GET:
                 data["parameter_location"] = ParameterLocation.QUERY
-            elif data.get("method") == HttpMethod.DELETE:
+            else:
                 data["parameter_location"] = ParameterLocation.BODY
         super().__init__(**data)
 

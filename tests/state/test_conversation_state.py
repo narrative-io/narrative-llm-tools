@@ -416,3 +416,188 @@ def test_multiple_tool_calls_in_one_message(reset_conversation_state):
 
     assert len(state.raw_messages) == 1
     assert state.status == ConversationStatus.WAITING_TOOL_RESPONSE
+
+def test_validate_max_tool_rounds():
+    # Valid cases
+    valid_data = {
+        "raw_messages": [],
+        "pipeline_params": {},
+        "max_tool_rounds": 5
+    }
+    state = ConversationState(**valid_data)
+    assert state.max_tool_rounds == 5
+
+    # Invalid cases
+    invalid_values = [0, -1, -5]
+    for invalid_value in invalid_values:
+        invalid_data = {
+            "raw_messages": [],
+            "pipeline_params": {},
+            "max_tool_rounds": invalid_value
+        }
+        with pytest.raises(ValueError, match="max_tool_rounds must be a positive integer"):
+            ConversationState(**invalid_data)
+
+def test_validate_messages(mock_tools_catalog):
+    # Valid case - list of proper ConversationMessage objects
+    valid_messages = [
+        ConversationMessage(role="user", content="Hello"),
+        ConversationMessage(role="assistant", content="Hi there"),
+    ]
+    
+    state = ConversationState(
+        raw_messages=valid_messages,
+        pipeline_params={},
+        tools_catalog=mock_tools_catalog
+    )
+    assert state.raw_messages == valid_messages
+
+    # Test invalid cases
+    with pytest.raises(ValidationError):
+        ConversationState(
+            raw_messages="not a list",
+            pipeline_params={},
+            tools_catalog=mock_tools_catalog
+        )
+
+    # Test invalid message format
+    with pytest.raises(ValidationError):
+        ConversationState(
+            raw_messages=[
+                {"role": "user", "invalid_field": "test"},
+            ],
+            pipeline_params={},
+            tools_catalog=mock_tools_catalog
+        )
+
+    # Test invalid role
+    with pytest.raises(ValidationError):
+        ConversationState(
+            raw_messages=[
+                {"role": "invalid_role", "content": "test"},
+            ],
+            pipeline_params={},
+            tools_catalog=mock_tools_catalog
+        )
+
+def test_has_tool_catalog_message(mock_tools_catalog):
+    # Test case with no tool_catalog message
+    state = ConversationState(
+        raw_messages=[
+            ConversationMessage(role="user", content="Hello"),
+            ConversationMessage(role="assistant", content="Hi there"),
+        ],
+        pipeline_params={},
+        tools_catalog=mock_tools_catalog,
+    )
+    assert not state.has_tool_catalog_message()
+
+    # Test case with a tool_catalog message
+    state = ConversationState(
+        raw_messages=[
+            ConversationMessage(role="user", content="Hello"),
+            ConversationMessage(role="tool_catalog", content='{"some": "tools"}'),
+            ConversationMessage(role="assistant", content="Hi there"),
+        ],
+        pipeline_params={},
+        tools_catalog=mock_tools_catalog,
+    )
+    assert state.has_tool_catalog_message()
+
+import pytest
+from narrative_llm_tools.state.conversation_state import ConversationState
+
+def test_is_user_response_behavior():
+    # Create a minimal ConversationState instance for testing
+    state = ConversationState(
+        raw_messages=[],
+        pipeline_params={},
+    )
+    
+    # Test positive cases
+    assert state._is_user_response_behavior("return_response_to_user") is True
+    assert state._is_user_response_behavior("return_request_to_user") is True
+    
+    # Test negative cases
+    assert state._is_user_response_behavior("some_other_behavior") is False
+    assert state._is_user_response_behavior("") is False
+    assert state._is_user_response_behavior("return_response") is False
+
+import pytest
+from narrative_llm_tools.state.conversation_state import ConversationState
+from narrative_llm_tools.tools.json_schema_tools import Tool
+
+def test_parse_tool_calls_content(mock_tools_catalog):
+    # Setup
+    state = ConversationState(
+        raw_messages=[],
+        pipeline_params={},
+        tools_catalog=mock_tools_catalog
+    )
+    
+    # Test valid tool calls
+    valid_content = '''[
+        {"name": "test_tool", "parameters": {"param": "value"}},
+        {"name": "another_tool", "parameters": {"foo": "bar"}}
+    ]'''
+    result = state.parse_tool_calls_content(valid_content)
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert all(isinstance(tool, Tool) for tool in result)
+    assert result[0].name == "test_tool"
+    assert result[0].parameters == {"param": "value"}
+    
+    # Test invalid JSON
+    with pytest.raises(ValueError, match="Tool calls content must be valid JSON"):
+        state.parse_tool_calls_content("{invalid json")
+    
+    # Test non-list JSON
+    with pytest.raises(ValueError, match="Tool calls must be a list of tool call objects"):
+        state.parse_tool_calls_content('{"not": "a list"}')
+
+def test_must_respond():
+    # Test case where we haven't hit max_tool_rounds yet
+    state = ConversationState(
+        raw_messages=[
+            ConversationMessage(role="user", content="Hello"),
+            ConversationMessage(role="tool_calls", content="[]"),
+            ConversationMessage(role="tool_calls", content="[]"),
+        ],
+        max_tool_rounds=5,
+        tools_catalog=JsonSchemaTools.only_user_response_tool(),
+        pipeline_params={},
+    )
+    assert not state.must_respond()
+
+    # Test case where we've hit exactly max_tool_rounds
+    state = ConversationState(
+        raw_messages=[
+            ConversationMessage(role="user", content="Hello"),
+            ConversationMessage(role="tool_calls", content="[]"),
+            ConversationMessage(role="tool_calls", content="[]"),
+            ConversationMessage(role="tool_calls", content="[]"),
+            ConversationMessage(role="tool_calls", content="[]"),
+            ConversationMessage(role="tool_calls", content="[]"),
+        ],
+        max_tool_rounds=5,
+        tools_catalog=JsonSchemaTools.only_user_response_tool(),
+        pipeline_params={},
+    )
+    assert state.must_respond()
+
+    # Test case where we've exceeded max_tool_rounds
+    state = ConversationState(
+        raw_messages=[
+            ConversationMessage(role="user", content="Hello"),
+            ConversationMessage(role="tool_calls", content="[]"),
+            ConversationMessage(role="tool_calls", content="[]"),
+            ConversationMessage(role="tool_calls", content="[]"),
+            ConversationMessage(role="tool_calls", content="[]"),
+            ConversationMessage(role="tool_calls", content="[]"),
+            ConversationMessage(role="tool_calls", content="[]"),
+        ],
+        max_tool_rounds=5,
+        tools_catalog=JsonSchemaTools.only_user_response_tool(),
+        pipeline_params={},
+    )
+    assert not state.must_respond()

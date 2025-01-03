@@ -110,3 +110,9 @@ def test_invalid_tool_schema():
             required=["invalid"],
             properties=None
         )
+
+def test_tool_schema_inequality_with_non_tool_schema(example_tool_schema):
+    assert example_tool_schema != "blah"
+
+def test_jsonschema_inequality_with_non_jsonschema(json_schema_tools):
+    assert json_schema_tools != "blah"
