@@ -13,7 +13,7 @@ from transformers import PreTrainedTokenizerBase  # type: ignore
 
 from narrative_llm_tools.tools.json_schema_tools import JsonSchemaTools
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("narrative-llm-tools")
 
 
 class TransformersPrefixAllowedTokensFn(Protocol):

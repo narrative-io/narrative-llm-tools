@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from narrative_llm_tools.rest_api_client.rest_api_client import RestApiClient
 from narrative_llm_tools.rest_api_client.types import RestApiConfig
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("narrative-llm-tools")
 
 
 class NameProperty(BaseModel):
