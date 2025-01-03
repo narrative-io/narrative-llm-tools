@@ -1,7 +1,7 @@
 import json
 import logging
 from collections.abc import Hashable
-from typing import Any, Literal, Optional, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel
 from torch import Tensor
@@ -20,11 +20,12 @@ from narrative_llm_tools.utils.format_enforcer import get_format_enforcer
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
+
 class HandlerResponse(BaseModel):
     """Response from the handler."""
 
     tool_calls: list[dict[str, Any]]
-    warnings: Optional[list[str]]
+    warnings: list[str] | None
 
 
 class ModelConfig(BaseModel):

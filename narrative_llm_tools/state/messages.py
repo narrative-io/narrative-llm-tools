@@ -26,10 +26,13 @@ def parse_json_array(
             jsonschema.validate(instance=parsed, schema=tool_catalog_schema)
     except json.JSONDecodeError as e:
         errors.append(f"Invalid JSON in 'value': {e}")
+        return (errors, [])
     except jsonschema.ValidationError as e:
         errors.append(f"Invalid JSON in 'value'.  Does not match tool_catalog schema: {e}")
+        return (errors, [])
     except Exception as e:
         errors.append(f"Unexpected error: {e}")
+        return (errors, [])
 
     return (errors, parsed)
 
@@ -45,10 +48,8 @@ class BaseMessage(BaseModel):
         if isinstance(v, str):
             return v
         raise ValueError(f"Message 'content' must be a string, got {type(v)}")
-    
-    model_config = {
-        'extra': 'forbid'
-    }
+
+    model_config = {"extra": "forbid"}
 
 
 class SystemMessage(BaseMessage):
@@ -56,7 +57,7 @@ class SystemMessage(BaseMessage):
 
 
 class ToolCatalogMessage(BaseMessage):
-    from_: Literal["tool_catalog"] = Field(alias="from")
+    from_: Literal["tool_catalog"] = Field(alias="from", default="tool_catalog")
 
     @field_validator("value")
     def validate_catalog(cls, v: Any) -> str:
@@ -89,8 +90,6 @@ class ToolCallMessage(BaseMessage):
         errors, parsed = parse_json_array(v, None)
         if errors:
             raise ValueError(errors)
-        if not isinstance(parsed, list):
-            raise ValueError("Tool calls must be a JSON array")
         for item in parsed:
             if not isinstance(item, dict) or set(item.keys()) != {"name", "parameters"}:
                 raise ValueError("Each tool call must have exactly 'name' and 'parameters' fields")
@@ -100,15 +99,13 @@ class ToolCallMessage(BaseMessage):
 
 
 class ToolResponseMessage(BaseMessage):
-    from_: Literal["tool_response", "tool"] = Field(alias="from")
+    from_: Literal["tool_response", "tool"] = Field(alias="from", default="tool")
 
     @field_validator("value")
     def validate_response(cls, v: Any) -> str:
         errors, parsed = parse_json_array(v, None)
         if errors:
             raise ValueError(errors)
-        if not isinstance(parsed, list):
-            raise ValueError("Tool response must be a JSON array")
         for item in parsed:
             if not isinstance(item, dict) or set(item.keys()) != {"name", "content"}:
                 raise ValueError("Each response must have exactly 'name' and 'content' fields")
@@ -126,6 +123,4 @@ Message = Annotated[
 class MessageWrapper(BaseModel):
     message: Message
 
-    model_config = {
-        'extra': 'forbid'
-    }
+    model_config = {"extra": "forbid"}

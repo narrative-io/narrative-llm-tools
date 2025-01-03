@@ -54,6 +54,9 @@ addopts = "--cov=narrative_llm_tools --cov-report=term-missing"
 [tool.coverage.run]
 source = ["narrative_llm_tools"]
 branch = true
+omit = [
+    "narrative_llm_tools/utils/types.py",
+]
 
 [tool.coverage.report]
 exclude_lines = [

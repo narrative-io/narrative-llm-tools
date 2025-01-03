@@ -1,9 +1,11 @@
+from unittest.mock import Mock, patch
 import pytest
 from pydantic import BaseModel
+import torch
 from transformers import AutoTokenizer
 
 from narrative_llm_tools.tools.json_schema_tools import JsonSchemaTools
-from narrative_llm_tools.utils.format_enforcer import get_format_enforcer
+from narrative_llm_tools.utils.format_enforcer import TransformersPrefixAllowedTokensFn, get_format_enforcer
 
 
 class SimpleSchema(BaseModel):
@@ -167,3 +169,20 @@ def test_format_enforcer_functionality(test_schema):
     # Assert
     assert isinstance(allowed_tokens, list)
     assert len(allowed_tokens) > 0
+
+def test_get_format_enforcer_exception():
+    # Mock dependencies
+    mock_tokenizer = Mock()
+    mock_tokenizer.name_or_path = "test-tokenizer"
+    
+    mock_tool_set = Mock()
+    mock_tool_set.model_dump.return_value = {"some": "schema"}
+
+    # Patch the build_transformers_prefix_allowed_tokens_fn to raise an exception
+    with patch(
+        "narrative_llm_tools.utils.format_enforcer.build_transformers_prefix_allowed_tokens_fn",
+        side_effect=ValueError("Test error")
+    ):
+        # Verify that the exception is propagated
+        with pytest.raises(Exception):
+            get_format_enforcer(mock_tokenizer, mock_tool_set)

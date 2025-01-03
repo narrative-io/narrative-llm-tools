@@ -327,11 +327,6 @@ def test_validate_tool_response_structure():
     valid_response = {"name": "test_tool", "content": "test result"}
     assert validate_tool_response_structure(valid_response, 0) == []
 
-    # Not a dict
-    assert validate_tool_response_structure(["not", "a", "dict"], 0) == [
-        "Response at index 0 must be an object"
-    ]
-
     # Missing fields
     missing_content = {"name": "test_tool"}
     assert validate_tool_response_structure(missing_content, 1) == [

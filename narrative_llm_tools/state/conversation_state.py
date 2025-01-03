@@ -137,12 +137,10 @@ class ConversationState(BaseModel):
         return value
 
     @field_validator("raw_messages")
-    def validate_messages(cls, value: Any) -> list[ConversationMessage]:
+    def validate_messages(cls, value: list[Any]) -> list[ConversationMessage]:
         """
         Validates that messages is a list of valid ConversationMessage items.
         """
-        if not isinstance(value, list):
-            raise ValueError("'messages' must be a list of ConversationMessage objects.")
         for message in value:
             ConversationMessage.model_validate(message)
         return value
@@ -275,8 +273,6 @@ class ConversationState(BaseModel):
             self._handle_tool_call(message)
         elif message.role == "tool_response":
             self._handle_tool_response(message)
-        else:
-            raise ValueError(f"Invalid message role: {message.role}")
 
         logger.info(f"Conversation state after adding message: {self}")
 
@@ -327,13 +323,11 @@ class ConversationState(BaseModel):
           - A tool_catalog message immediately after the system message.
         """
         if not self.has_system_message():
-            # Inject system message and catalog at the front
             return [
                 ConversationMessage(role="system", content="You are a helpful assistant."),
                 self._tool_catalog_message(),
             ] + self.raw_messages
 
-        # Otherwise, locate the system message and insert tool_catalog right after it
         system_msg_index = next(
             (i for i, msg in enumerate(self.raw_messages) if msg.role == "system"),
             None,
@@ -342,7 +336,6 @@ class ConversationState(BaseModel):
         if system_msg_index is None:  # This should never happen
             return self.raw_messages
 
-        # If system message is found, we insert the catalog message right after it.
         return (
             self.raw_messages[: system_msg_index + 1]
             + [self._tool_catalog_message()]

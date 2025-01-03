@@ -1,6 +1,5 @@
 import logging
 from collections.abc import Hashable
-from typing import Protocol
 
 from cachetools import LRUCache, cached
 from cachetools.keys import hashkey
@@ -8,16 +7,12 @@ from lmformatenforcer import JsonSchemaParser  # type: ignore
 from lmformatenforcer.integrations.transformers import (  # type: ignore
     build_transformers_prefix_allowed_tokens_fn,
 )
-from torch import Tensor
 from transformers import PreTrainedTokenizerBase  # type: ignore
 
 from narrative_llm_tools.tools.json_schema_tools import JsonSchemaTools
+from narrative_llm_tools.utils.types import TransformersPrefixAllowedTokensFn
 
 logger = logging.getLogger(__name__)
-
-
-class TransformersPrefixAllowedTokensFn(Protocol):
-    def __call__(self, batch_id: int, sent: Tensor) -> list[int]: ...
 
 
 def _cache_key(

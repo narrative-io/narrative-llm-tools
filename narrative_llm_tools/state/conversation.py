@@ -21,15 +21,13 @@ class Conversation(BaseModel):
         conv = self.conversations
 
         if len(conv) < 3:
-            all_errors.append(
-                f"'conversation' must have at least 3 messages. Found {len(conv)}."
-            )
+            all_errors.append(f"'conversation' must have at least 3 messages. Found {len(conv)}.")
 
         system_count = 0
         tool_catalog_count = 0
         last_role = None
         found_system = False
-        tool_catalog_schema = None  
+        tool_catalog_schema = None
         assistant_call_indices = []
         user_count = 0
 
@@ -134,15 +132,22 @@ class Conversation(BaseModel):
                     _, prev_arr = parse_json_array(prev_content, tool_catalog_schema)
 
                     if len(arr) != len(prev_arr):
-                        msg_errors.append("tool_response array length must match the preceding 'assistant'/'tool_call' array.")
+                        msg_errors.append(
+                            "tool_response array length must match "
+                            "the preceding 'assistant'/'tool_call' array."
+                        )
                     else:
-                        for idx, (response, prev_call) in enumerate(zip(arr, prev_arr)):
+                        for idx, (response, prev_call) in enumerate(
+                            zip(arr, prev_arr, strict=False)
+                        ):
                             structure_errors = validate_tool_response_structure(response, idx)
                             if structure_errors:
                                 msg_errors.extend(structure_errors)
                                 continue
-                            
-                            matching_errors = validate_tool_response_matching(response, prev_call, idx)
+
+                            matching_errors = validate_tool_response_matching(
+                                response, prev_call, idx
+                            )
                             msg_errors.extend(matching_errors)
 
             all_errors.extend(msg_errors)
@@ -291,28 +296,23 @@ def validate_tool_catalog_schema(schema_str: str) -> tuple[Any, list[str]]:
     return None, errors
 
 
-def validate_tool_response_structure(response: dict, idx: int) -> list[str]:
+def validate_tool_response_structure(response: dict[str, Any], idx: int) -> list[str]:
     """Validate the structure of a single tool response object."""
     errors = []
-    
-    if not isinstance(response, dict):
-        errors.append(f"Response at index {idx} must be an object")
-        return errors
 
     if set(response.keys()) != {"name", "content"}:
-        errors.append(
-            f"Response at index {idx} must have exactly 'name' and 'content' fields"
-        )
+        errors.append(f"Response at index {idx} must have exactly 'name' and 'content' fields")
         return errors
 
     if not isinstance(response["name"], str) or not isinstance(response["content"], str):
-        errors.append(
-            f"Response at index {idx}: 'name' and 'content' must be strings"
-        )
-    
+        errors.append(f"Response at index {idx}: 'name' and 'content' must be strings")
+
     return errors
 
-def validate_tool_response_matching(response: dict, prev_call: dict, idx: int) -> list[str]:
+
+def validate_tool_response_matching(
+    response: dict[str, Any], prev_call: dict[str, Any], idx: int
+) -> list[str]:
     """Validate that a tool response matches its corresponding tool call."""
     errors = []
     if response["name"] != prev_call.get("name"):
