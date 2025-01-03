@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from torch import Tensor
 from transformers import pipeline  # type: ignore
 
-from narrative_llm_tools.rest_api_client.types import RestApiResponse
+from narrative_llm_tools.rest_api_client.types import RestApiResponse, ReturnToLlmBehavior
 from narrative_llm_tools.state.conversation_state import (
     ConversationMessage,
     ConversationState,
@@ -17,7 +17,7 @@ from narrative_llm_tools.state.conversation_state import (
 from narrative_llm_tools.tools import Tool
 from narrative_llm_tools.utils.format_enforcer import get_format_enforcer
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("narrative-llm-tools")
 logger.setLevel(logging.WARNING)
 
 
@@ -35,7 +35,6 @@ class ModelConfig(BaseModel):
     path: str
     max_new_tokens: int = 4096
     device_map: str = "auto"
-    low_cpu_mem_usage: bool = False
     begin_token: str = "<|begin_of_text|>"
     eot_token: str = "<|eot_id|>"
 
@@ -112,14 +111,14 @@ class AuthenticationError(EndpointError):
 
 
 class EndpointHandler:
-    def __init__(self, path: str = "", low_cpu_mem_usage: bool = False) -> None:
+    def __init__(self, path: str = "") -> None:
         """
         Initialize the EndpointHandler with the provided model path.
 
         Args:
             path (str, optional): The path or identifier of the model. Defaults to "".
         """
-        self.config = ModelConfig(path=path, low_cpu_mem_usage=low_cpu_mem_usage)
+        self.config = ModelConfig(path=path)
 
         try:
             self.pipeline: Pipeline = self._create_pipeline()
@@ -136,11 +135,10 @@ class EndpointHandler:
             model=self.config.path,
             max_new_tokens=self.config.max_new_tokens,
             device_map=self.config.device_map,
-            low_cpu_mem_usage=self.config.low_cpu_mem_usage,
         )
         return pipe  # type: ignore
 
-    def __call__(self, data: dict[str, Any]) -> HandlerResponse:
+    def __call__(self, data: dict[str, Any]) -> dict[str, Any]:
         """
         Generate model output given a conversation and optional tools/parameters.
 
@@ -296,7 +294,7 @@ class EndpointHandler:
                 if not isinstance(tool_call, dict):
                     raise ModelOutputError("Model output is not a list of tool calls.")
 
-            return HandlerResponse(tool_calls=return_msg, warnings=None)
+            return HandlerResponse(tool_calls=return_msg, warnings=None).model_dump(exclude_none=True)
 
         except (
             ValidationError,
@@ -332,6 +330,7 @@ class EndpointHandler:
         """Execute tool calls and update conversation state."""
         logger.debug(f"Executing tool calls: {tool_calls}")
         rest_api_catalog = state.get_rest_api_catalog()
+        logger.info(f"Rest API catalog: {rest_api_catalog}")
 
         if not rest_api_catalog:
             logger.info("No rest API catalog is available, skipping all tool calls.")
@@ -345,21 +344,37 @@ class EndpointHandler:
                 api_client = rest_api_catalog[tool.name]
                 api_response: RestApiResponse = api_client.call(tool.parameters)
                 api_client_behavior = (
-                    api_client.config.response_behavior.get(api_response.status)
-                    if api_client.config.response_behavior.get(api_response.status)
+                    api_client.config.response_behavior.get(str(api_response.status))
+                    if api_client.config.response_behavior.get(str(api_response.status))
                     else api_client.config.response_behavior.get("default")
                 )
 
-                if api_response.type == "json" and api_client_behavior == "return_to_llm":
-                    tool_responses.append(ToolResponse(name=tool.name, content=api_response.body))
+                logger.info(f"API response: {api_response}, behavior: {api_client_behavior}")
+                behavior_type = api_client_behavior.behavior_type if api_client_behavior else None
+
+                if (
+                    behavior_type
+                    and behavior_type == "return_to_llm"
+                ):
+                    llm_response_behavior: ReturnToLlmBehavior = api_client_behavior  # type: ignore
+
+                    response = (
+                        llm_response_behavior.response
+                        if llm_response_behavior.response
+                        else api_response.body
+                    )
+                    tool_responses.append(ToolResponse(name=tool.name, content=response))
                 elif (
-                    api_response.type == "json" and api_client_behavior == "return_response_to_user"
+                    api_response.type == "json"
+                    and behavior_type
+                    and behavior_type == "return_response_to_user"
                 ):
                     tool_responses.append(ToolResponse(name=tool.name, content=api_response.body))
                     return_to_user = True
                 elif (
                     api_response.type == "json"
-                    and api_client_behavior == "return_request_to_user"
+                    and behavior_type
+                    and behavior_type == "return_request_to_user"
                     and api_response.request
                 ):
                     tool_responses.append(
