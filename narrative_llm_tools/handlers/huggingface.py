@@ -294,7 +294,9 @@ class EndpointHandler:
                 if not isinstance(tool_call, dict):
                     raise ModelOutputError("Model output is not a list of tool calls.")
 
-            return HandlerResponse(tool_calls=return_msg, warnings=None).model_dump(exclude_none=True)
+            return HandlerResponse(tool_calls=return_msg, warnings=None).model_dump(
+                exclude_none=True
+            )
 
         except (
             ValidationError,
@@ -352,10 +354,7 @@ class EndpointHandler:
                 logger.info(f"API response: {api_response}, behavior: {api_client_behavior}")
                 behavior_type = api_client_behavior.behavior_type if api_client_behavior else None
 
-                if (
-                    behavior_type
-                    and behavior_type == "return_to_llm"
-                ):
+                if behavior_type and behavior_type == "return_to_llm":
                     llm_response_behavior: ReturnToLlmBehavior = api_client_behavior  # type: ignore
 
                     response = (

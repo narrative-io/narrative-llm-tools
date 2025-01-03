@@ -52,7 +52,7 @@ class TestRestApiConfig:
         )
         assert "default" in config.response_behavior
         assert isinstance(config.response_behavior["default"], ReturnToLlmBehavior)
-        assert config.response_behavior["default"].llm_response is None
+        assert config.response_behavior["default"].response is None
 
     def test_equality(self):
         config1 = RestApiConfig(
