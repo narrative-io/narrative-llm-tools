@@ -25,54 +25,53 @@ jobs:
       - name: Generate Release Notes
         id: generate_notes
         run: |
-        LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-        
-        echo "## What's Changed" > release_notes.md
-        
-        # Features
-        echo "### 🚀 Features" >> release_notes.md
-        if [ -z "$LAST_TAG" ]; then
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          echo "## What's Changed" > release_notes.md
+          
+          # Features
+          echo "### 🚀 Features" >> release_notes.md
+          if [ -z "$LAST_TAG" ]; then
             git log --pretty=format:"* %s (%h)" --no-merges | grep -i "^feat:" >> release_notes.md || true
-        else
+          else
             git log ${LAST_TAG}..HEAD --pretty=format:"* %s (%h)" --no-merges | grep -i "^feat:" >> release_notes.md || true
-        fi
-        
-        # Bug Fixes
-        echo -e "\n### 🐛 Bug Fixes" >> release_notes.md
-        if [ -z "$LAST_TAG" ]; then
+          fi
+          
+          # Bug Fixes
+          echo -e "\n### 🐛 Bug Fixes" >> release_notes.md
+          if [ -z "$LAST_TAG" ]; then
             git log --pretty=format:"* %s (%h)" --no-merges | grep -i "^fix:" >> release_notes.md || true
-        else
+          else
             git log ${LAST_TAG}..HEAD --pretty=format:"* %s (%h)" --no-merges | grep -i "^fix:" >> release_notes.md || true
-        fi
-        
-        # Other Changes
-        echo -e "\n### 🔧 Other Changes" >> release_notes.md
-        if [ -z "$LAST_TAG" ]; then
+          fi
+          
+          # Other Changes
+          echo -e "\n### 🔧 Other Changes" >> release_notes.md
+          if [ -z "$LAST_TAG" ]; then
             git log --pretty=format:"* %s (%h)" --no-merges | grep -iv "^feat:\|^fix:" >> release_notes.md || true
-        else
+          else
             git log ${LAST_TAG}..HEAD --pretty=format:"* %s (%h)" --no-merges | grep -iv "^feat:\|^fix:" >> release_notes.md || true
-        fi
-        
-        # Escape content for GitHub Actions
-        EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-        echo "RELEASE_NOTES<<$EOF" >> $GITHUB_ENV
-        cat release_notes.md >> $GITHUB_ENV
-        echo "$EOF" >> $GITHUB_ENV
+          fi
+          
+          # Escape content for GitHub Actions
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "RELEASE_NOTES<<$EOF" >> $GITHUB_ENV
+          cat release_notes.md >> $GITHUB_ENV
+          echo "$EOF" >> $GITHUB_ENV
 
       - name: Update version in pyproject.toml
         run: |
           sed -i "s/version = \".*\"/version = \"${{ github.event.inputs.version }}\"/" pyproject.toml
 
-  
       - name: Update README version
         run: |
-            sed -i "s|narrative-llm-tools @ git+https://github.com/narrative-io/narrative-llm-tools.git@.*|narrative-llm-tools @ git+https://github.com/narrative-io/narrative-llm-tools.git@v${{ github.event.inputs.version }}|" README.md
+          sed -i "s|narrative-llm-tools @ git+https://github.com/narrative-io/narrative-llm-tools.git@.*|narrative-llm-tools @ git+https://github.com/narrative-io/narrative-llm-tools.git@v${{ github.event.inputs.version }}|" README.md
 
       - name: Commit version update
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add pyproject.toml
+          git add pyproject.toml README.md
           git commit -m "Bump version to ${{ github.event.inputs.version }}"
           git push
 
