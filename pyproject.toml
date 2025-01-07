@@ -126,4 +126,5 @@ dev = [
     "types-jsonschema>=4.23.0",
     "types-jmespath>=1.0.1",
     "types-tqdm>=4.66.4",
+    "tomli>=2.2.1",
 ]
