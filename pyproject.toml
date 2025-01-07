@@ -54,6 +54,7 @@ exclude_lines = [
 
 [tool.hatch.build.targets.wheel.force-include]
 "narrative_llm_tools/py.typed" = "narrative_llm_tools/py.typed"
+"narrative_llm_tools/templates" = "narrative_llm_tools/templates"
 
 [tool.mypy]
 python_version = "3.10"
@@ -127,4 +128,5 @@ dev = [
     "types-jmespath>=1.0.1",
     "types-tqdm>=4.66.4",
     "tomli>=2.2.1",
+    "djlint>=1.36.4"
 ]

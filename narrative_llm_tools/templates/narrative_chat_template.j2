@@ -1,0 +1,45 @@
+{%- if bos_token is not defined %}{% set bos_token = "<|begin_of_text |>" %}
+{% endif %}
+{%- if tool_calls_token is not defined %}{% set tool_calls_token = "<|tool_calls |>" %}
+{% endif %}
+{%- if tool_catalog_start_token is not defined %}{% set tool_catalog_start_token = "<|tool_catalog_start |>" %}
+{% endif %}
+{%- if tool_catalog_end_token is not defined %}{% set tool_catalog_end_token = "<|tool_catalog_end |>" %}
+{% endif %}
+{%- if add_generation_prompt is not defined %}{% set add_generation_prompt = false %}
+{% endif %}
+{%- if force_tool_calls is not defined %}{% set force_tool_calls = true %}
+{% endif %}
+{{- bos_token + '<|start_header_id |>system<|end_header_id |>\n\n' }}
+{{- "Cutting Knowledge Date: December 2023\n\n" }}
+{%- if messages is defined %}
+    {%- set system_message = messages | selectattr('role', 'equalto', 'system') | map(attribute='content') | first %}
+    {%- if system_message %}{{- system_message | trim }}{%- endif %}
+{%- endif %}
+{%- if messages is defined %}
+    {%- set tool_message = messages | selectattr('role', 'equalto', 'tool_catalog') | map(attribute='content') | first %}
+    {%- if tool_message %}
+        {{- '\nRespond with JSON that matches the following JSON Schema definition from the tool catalog:\n\n' }}
+        {{- '<|tool_catalog_start |>\n' + tool_message | trim + '\n<|tool_catalog_end |>' -}}
+    {%- endif %}
+{%- endif %}
+{{- '<|eot_id |>' }}
+{%- if messages is defined %}
+    {%- for msg in messages %}
+        {%- if msg['role'] == 'user' %}
+            {{- '<|start_header_id |>user<|end_header_id |>\n\n' + msg['content'] | trim + '<|eot_id |>' }}
+        {%- elif msg['role'] in ['tool_response', 'tool'] %}
+            {{- '<|start_header_id |>tool<|end_header_id |>\n\n' + msg['content'] | trim + '<|eot_id |>' }}
+        {%- elif msg['role'] == 'tool_calls' %}
+            {{- '<|start_header_id |>assistant<|end_header_id |>\n\n' + tool_calls_token + msg['content'] | trim + '<|eot_id |>' }}
+        {%- elif msg['role'] == 'assistant' %}
+            {{- '<|start_header_id |>assistant<|end_header_id |>\n\n' + tool_calls_token + msg['content'] | trim + '<|eot_id |>' }}
+        {%- endif %}
+    {%- endfor %}
+{%- endif %}
+{%- if add_generation_prompt and force_tool_calls %}
+    {{- '<|start_header_id |>assistant<|end_header_id |>\n\n<|tool_calls |>' }}
+{%- endif %}
+{%- if add_generation_prompt and not force_tool_calls %}
+    {{- '<|start_header_id |>assistant<|end_header_id |>\n\n' }}
+{%- endif %}
