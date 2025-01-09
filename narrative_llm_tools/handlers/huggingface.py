@@ -316,7 +316,17 @@ class EndpointHandler:
     def _process_conversation_turn(self, state: ConversationState) -> None:
         """Process a single turn of the conversation."""
         conversation_text = self._format_conversation(state)
-        format_enforcer = get_format_enforcer(self.pipeline.tokenizer, state.update_current_tools())
+
+        if state.tools_catalog:
+            current_tools = state.update_current_tools()
+            format_enforcer = (
+                get_format_enforcer(self.pipeline.tokenizer, current_tools)
+                if current_tools
+                else None
+            )
+        else:
+            format_enforcer = None
+
         model_output = self._generate_prediction(
             conversation_text, format_enforcer, state.pipeline_params
         )
