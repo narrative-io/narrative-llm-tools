@@ -276,12 +276,24 @@ class ConversationState(BaseModel):
         Raises:
             ValueError: If the message role is invalid or adding it violates state constraints.
         """
+        logger.info(f"Adding message: {message}")
+        
         if message.role == "tool_calls":
             self._handle_tool_call(message)
         elif message.role == "tool_response":
             self._handle_tool_response(message)
+        elif message.role == "assistant":
+            self._handle_assistant_response(message)
 
         logger.info(f"Conversation state after adding message: {self}")
+        
+    def _handle_assistant_response(self, message: ConversationMessage) -> None:
+        """
+        Handles adding an assistant response message and updating state accordingly.
+        """
+        logger.info(f"Handling assistant response: {message}")
+        self.raw_messages.append(message)
+        self.transition_to(ConversationStatus.COMPLETED)
 
     def _handle_tool_call(self, message: ConversationMessage) -> None:
         """
