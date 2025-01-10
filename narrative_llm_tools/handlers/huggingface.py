@@ -324,37 +324,42 @@ class EndpointHandler:
     def _process_conversation_turn(self, state: ConversationState) -> None:
         """Process a single turn of the conversation."""
         conversation_text = self._format_conversation(state)
-
-        if state.tools_catalog:
-            current_tools = state.update_current_tools()
-            format_enforcer = (
-                get_format_enforcer(self.pipeline.tokenizer, current_tools)
-                if current_tools
-                else None
-            )
-        else:
-            format_enforcer = None
+        format_enforcer = self._get_format_enforcer(state)
 
         model_output = self._generate_prediction(
             conversation_text, format_enforcer, state.pipeline_params
         )
 
+        formatted_output = self._format_model_output(model_output, state.tool_choice)
+
         if state.tool_choice != "none":
-            tool_calls = self._format_model_output(model_output, state.tool_choice)
+            if not isinstance(formatted_output, list):
+                logger.warning("Expected list of tool calls but got different type")
+                return
 
-            if isinstance(tool_calls, list):
-                serialized = [tool.model_dump() for tool in tool_calls]
-                state.add_message(
-                    ConversationMessage(role="tool_calls", content=json.dumps(serialized))
-                )
+            serialized = [tool.model_dump() for tool in formatted_output]
+            state.add_message(
+                ConversationMessage(role="tool_calls", content=json.dumps(serialized))
+            )
 
-                if state.only_called_rest_api_tools(tool_calls):
-                    self._execute_tool_calls(tool_calls, state)
+            if state.only_called_rest_api_tools(formatted_output):
+                self._execute_tool_calls(formatted_output, state)
         else:
-            content = self._format_model_output(model_output, state.tool_choice)
+            if not isinstance(formatted_output, str):
+                logger.warning("Expected string response but got different type")
+                return
 
-            if isinstance(content, str):
-                state.add_message(ConversationMessage(role="assistant", content=content))
+            state.add_message(ConversationMessage(role="assistant", content=formatted_output))
+
+    def _get_format_enforcer(self, state: ConversationState) -> FormatEnforcer | None:
+        """Get the format enforcer based on current tools state."""
+        if not state.tools_catalog:
+            return None
+
+        current_tools = state.update_current_tools()
+        return (
+            get_format_enforcer(self.pipeline.tokenizer, current_tools) if current_tools else None
+        )
 
     def _execute_tool_calls(self, tool_calls: list[Tool], state: ConversationState) -> None:
         """Execute tool calls and update conversation state."""
