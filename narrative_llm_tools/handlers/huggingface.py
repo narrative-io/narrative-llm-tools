@@ -24,8 +24,9 @@ logger.setLevel(logging.WARNING)
 class HandlerResponse(BaseModel):
     """Response from the handler."""
 
-    tool_calls: list[dict[str, Any]]
-    warnings: list[str] | None
+    text_response: str | None = None
+    tool_calls: list[dict[str, Any]] | None = None
+    warnings: list[str] | None = None
 
 
 class ModelConfig(BaseModel):
@@ -285,18 +286,25 @@ class EndpointHandler:
             }:
                 self._process_conversation_turn(conversation_state)
 
-            return_msg = json.loads(conversation_state.get_last_message().content)
+            if conversation_state.tool_choice != "none":
+                return_msg = json.loads(conversation_state.get_last_message().content)
 
-            if not isinstance(return_msg, list):
-                raise ModelOutputError("Model output is not a list of tool calls.")
-
-            for tool_call in return_msg:
-                if not isinstance(tool_call, dict):
+                if not isinstance(return_msg, list):
                     raise ModelOutputError("Model output is not a list of tool calls.")
 
-            return HandlerResponse(tool_calls=return_msg, warnings=None).model_dump(
-                exclude_none=True
-            )
+                for tool_call in return_msg:
+                    if not isinstance(tool_call, dict):
+                        raise ModelOutputError("Model output is not a list of tool calls.")
+
+                return HandlerResponse(
+                    tool_calls=return_msg, warnings=None, text_response=None
+                ).model_dump(exclude_none=True)
+            else:
+                return HandlerResponse(
+                    tool_calls=None,
+                    text_response=conversation_state.get_last_message().content,
+                    warnings=None,
+                ).model_dump(exclude_none=True)
 
         except (
             ValidationError,
@@ -316,17 +324,42 @@ class EndpointHandler:
     def _process_conversation_turn(self, state: ConversationState) -> None:
         """Process a single turn of the conversation."""
         conversation_text = self._format_conversation(state)
-        format_enforcer = get_format_enforcer(self.pipeline.tokenizer, state.update_current_tools())
+        format_enforcer = self._get_format_enforcer(state)
+
         model_output = self._generate_prediction(
             conversation_text, format_enforcer, state.pipeline_params
         )
 
-        tool_calls = self._format_model_output(model_output)
-        serialized = [tool.model_dump() for tool in tool_calls]
-        state.add_message(ConversationMessage(role="tool_calls", content=json.dumps(serialized)))
+        formatted_output = self._format_model_output(model_output, state.tool_choice)
 
-        if state.only_called_rest_api_tools(tool_calls):
-            self._execute_tool_calls(tool_calls, state)
+        if state.tool_choice != "none":
+            if not isinstance(formatted_output, list):
+                logger.warning("Expected list of tool calls but got different type")
+                return
+
+            serialized = [tool.model_dump() for tool in formatted_output]
+            state.add_message(
+                ConversationMessage(role="tool_calls", content=json.dumps(serialized))
+            )
+
+            if state.only_called_rest_api_tools(formatted_output):
+                self._execute_tool_calls(formatted_output, state)
+        else:
+            if not isinstance(formatted_output, str):
+                logger.warning("Expected string response but got different type")
+                return
+
+            state.add_message(ConversationMessage(role="assistant", content=formatted_output))
+
+    def _get_format_enforcer(self, state: ConversationState) -> FormatEnforcer | None:
+        """Get the format enforcer based on current tools state."""
+        if not state.tools_catalog:
+            return None
+
+        current_tools = state.update_current_tools()
+        return (
+            get_format_enforcer(self.pipeline.tokenizer, current_tools) if current_tools else None
+        )
 
     def _execute_tool_calls(self, tool_calls: list[Tool], state: ConversationState) -> None:
         """Execute tool calls and update conversation state."""
@@ -400,7 +433,11 @@ class EndpointHandler:
         if return_to_user and state.status != ConversationStatus.COMPLETED:
             state.transition_to(ConversationStatus.COMPLETED)
 
-    def _format_model_output(self, model_output: list[dict[str, Any]]) -> list[Tool]:
+    def _format_model_output(
+        self,
+        model_output: list[dict[str, Any]],
+        tool_choice: Literal["required", "none", "auto"],
+    ) -> list[Tool] | str:
         """Format the model output into a list of dictionaries."""
         if not model_output:
             return []
@@ -412,6 +449,9 @@ class EndpointHandler:
 
         if generated_text is None:
             raise ModelOutputError("No generated_text found in the model output.")
+
+        if tool_choice == "none":
+            return generated_text
 
         try:
             logger.debug(f"Generated text: {generated_text}")

@@ -82,7 +82,7 @@ class ConversationState(BaseModel):
     raw_messages: list[ConversationMessage]
     max_tool_rounds: int = 5
     tool_choice: Literal["required", "auto", "none"] = "required"
-    tools_catalog: JsonSchemaTools = JsonSchemaTools.only_user_response_tool()
+    tools_catalog: JsonSchemaTools | None = JsonSchemaTools.only_user_response_tool()
     pipeline_params: dict[str, Any]
     status: ConversationStatus = ConversationStatus.RUNNING
 
@@ -103,14 +103,14 @@ class ConversationState(BaseModel):
             if k not in cls.RESERVED_KEYS and not k.startswith("_")
         }
 
+        tool_choice = request_data.get("tool_choice", "required")
         tools_data = request_data.get("tools", {})
         tools_instance = (
             JsonSchemaTools.model_validate(tools_data)
-            if tools_data
-            else JsonSchemaTools.only_user_response_tool()
+            if tools_data and tools_data != {} and tool_choice != "none"
+            else JsonSchemaTools.only_user_response_tool() if tool_choice != "none" else None
         )
 
-        tool_choice = request_data.get("tool_choice", "required")
         status = (
             ConversationStatus.WRAP_THINGS_UP
             if tool_choice == "none"
@@ -188,7 +188,9 @@ class ConversationState(BaseModel):
         """
         Internal helper to check if there's at least one non-REST API tool available.
         """
-        return len(self.rest_api_names) != len(self.tools_catalog.items.anyOf)
+        return not self.tools_catalog or len(self.rest_api_names) != len(
+            self.tools_catalog.items.anyOf
+        )
 
     def _has_rest_api_tools(self, content: str) -> bool:
         """Checks if the given content calls any REST API tools."""
@@ -235,13 +237,14 @@ class ConversationState(BaseModel):
 
     def get_rest_api_catalog(self) -> dict[str, RestApiClient]:
         """Returns all REST API tools from the current catalog."""
-        return self.tools_catalog.get_rest_apis()
+        return self.tools_catalog.get_rest_apis() if self.tools_catalog else {}
 
     def remove_tool(self, tool_name: str) -> None:
         """
         Removes the specified tool from the catalog if it exists.
         """
-        self.tools_catalog = self.tools_catalog.remove_tool_by_name(tool_name)
+        if self.tools_catalog:
+            self.tools_catalog = self.tools_catalog.remove_tool_by_name(tool_name)
 
     @property
     def tool_calls_count(self) -> int:
@@ -256,7 +259,11 @@ class ConversationState(BaseModel):
         """
         return ConversationMessage(
             role="tool_catalog",
-            content=json.dumps(self.tools_catalog.model_dump(), separators=(",", ":")),
+            content=(
+                json.dumps(self.tools_catalog.model_dump(), separators=(",", ":"))
+                if self.tools_catalog
+                else ""
+            ),
         )
 
     def add_message(self, message: ConversationMessage) -> None:
@@ -269,12 +276,24 @@ class ConversationState(BaseModel):
         Raises:
             ValueError: If the message role is invalid or adding it violates state constraints.
         """
+        logger.info(f"Adding message: {message}")
+        
         if message.role == "tool_calls":
             self._handle_tool_call(message)
         elif message.role == "tool_response":
             self._handle_tool_response(message)
+        elif message.role == "assistant":
+            self._handle_assistant_response(message)
 
         logger.info(f"Conversation state after adding message: {self}")
+        
+    def _handle_assistant_response(self, message: ConversationMessage) -> None:
+        """
+        Handles adding an assistant response message and updating state accordingly.
+        """
+        logger.info(f"Handling assistant response: {message}")
+        self.raw_messages.append(message)
+        self.transition_to(ConversationStatus.COMPLETED)
 
     def _handle_tool_call(self, message: ConversationMessage) -> None:
         """
@@ -348,16 +367,17 @@ class ConversationState(BaseModel):
         """
         Removes all REST API tools from the catalog.
         """
-        self.tools_catalog = self.tools_catalog.remove_rest_api_tools()
+        if self.tools_catalog:
+            self.tools_catalog = self.tools_catalog.remove_rest_api_tools()
 
-    def update_current_tools(self) -> JsonSchemaTools:
+    def update_current_tools(self) -> JsonSchemaTools | None:
         """
         Returns the appropriate tool catalog for the current conversation state:
           - If status is WRAP_THINGS_UP, only return user-response tool.
           - If status is RUNNING but there's no way to respond, return a catalog
             that includes a user-response tool. Otherwise, return the current tools.
         """
-        if len(self.tools_catalog.items.anyOf) == 0:
+        if self.tools_catalog and len(self.tools_catalog.items.anyOf) == 0:
             self.tools_catalog = JsonSchemaTools.only_user_response_tool()
         elif self.status == ConversationStatus.WRAP_THINGS_UP:
             logger.info(
@@ -369,11 +389,13 @@ class ConversationState(BaseModel):
                 "After removing rest API tools, "
                 "we have {len(self.tools_catalog.items.anyOf)} tools.",
             )
-            if len(self.tools_catalog.items.anyOf) == 0:
+            if self.tools_catalog and len(self.tools_catalog.items.anyOf) == 0:
                 self.tools_catalog = JsonSchemaTools.only_user_response_tool()
         elif self.status == ConversationStatus.RUNNING:
             if not self.can_respond():
-                self.tools_catalog = self.tools_catalog.with_user_response_tool()
+                self.tools_catalog = (
+                    self.tools_catalog.with_user_response_tool() if self.tools_catalog else None
+                )
         elif self.status in [
             ConversationStatus.WAITING_TOOL_RESPONSE,
             ConversationStatus.COMPLETED,

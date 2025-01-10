@@ -222,7 +222,7 @@ def test_endpoint_handler_format_model_output(endpoint_handler: EndpointHandler)
     Test parsing valid JSON from the pipeline's model output.
     """
     mock_output = [{"generated_text": '[{"name": "tool1", "parameters": {"p": 1}}]'}]
-    tools = endpoint_handler._format_model_output(mock_output)
+    tools = endpoint_handler._format_model_output(mock_output, "auto")
     assert len(tools) == 1
     assert tools[0].name == "tool1"
     assert tools[0].parameters == {"p": 1}
