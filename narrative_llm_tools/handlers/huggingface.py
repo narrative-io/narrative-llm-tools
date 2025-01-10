@@ -24,8 +24,9 @@ logger.setLevel(logging.WARNING)
 class HandlerResponse(BaseModel):
     """Response from the handler."""
 
-    tool_calls: list[dict[str, Any]]
-    warnings: list[str] | None
+    text_response: str | None = None
+    tool_calls: list[dict[str, Any]] | None = None
+    warnings: list[str] | None = None
 
 
 class ModelConfig(BaseModel):
@@ -285,18 +286,25 @@ class EndpointHandler:
             }:
                 self._process_conversation_turn(conversation_state)
 
-            return_msg = json.loads(conversation_state.get_last_message().content)
+            if conversation_state.tool_choice != "none":
+                return_msg = json.loads(conversation_state.get_last_message().content)
 
-            if not isinstance(return_msg, list):
-                raise ModelOutputError("Model output is not a list of tool calls.")
-
-            for tool_call in return_msg:
-                if not isinstance(tool_call, dict):
+                if not isinstance(return_msg, list):
                     raise ModelOutputError("Model output is not a list of tool calls.")
 
-            return HandlerResponse(tool_calls=return_msg, warnings=None).model_dump(
-                exclude_none=True
-            )
+                for tool_call in return_msg:
+                    if not isinstance(tool_call, dict):
+                        raise ModelOutputError("Model output is not a list of tool calls.")
+
+                return HandlerResponse(
+                    tool_calls=return_msg, warnings=None, text_response=None
+                ).model_dump(exclude_none=True)
+            else:
+                return HandlerResponse(
+                    tool_calls=None,
+                    text_response=conversation_state.get_last_message().content,
+                    warnings=None,
+                ).model_dump(exclude_none=True)
 
         except (
             ValidationError,
