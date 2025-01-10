@@ -339,12 +339,22 @@ class EndpointHandler:
             conversation_text, format_enforcer, state.pipeline_params
         )
 
-        tool_calls = self._format_model_output(model_output)
-        serialized = [tool.model_dump() for tool in tool_calls]
-        state.add_message(ConversationMessage(role="tool_calls", content=json.dumps(serialized)))
+        if state.tool_choice != "none":
+            tool_calls = self._format_model_output(model_output, state.tool_choice)
 
-        if state.only_called_rest_api_tools(tool_calls):
-            self._execute_tool_calls(tool_calls, state)
+            if isinstance(tool_calls, list):
+                serialized = [tool.model_dump() for tool in tool_calls]
+                state.add_message(
+                    ConversationMessage(role="tool_calls", content=json.dumps(serialized))
+                )
+
+                if state.only_called_rest_api_tools(tool_calls):
+                    self._execute_tool_calls(tool_calls, state)
+        else:
+            content = self._format_model_output(model_output, state.tool_choice)
+
+            if isinstance(content, str):
+                state.add_message(ConversationMessage(role="assistant", content=content))
 
     def _execute_tool_calls(self, tool_calls: list[Tool], state: ConversationState) -> None:
         """Execute tool calls and update conversation state."""
@@ -418,7 +428,11 @@ class EndpointHandler:
         if return_to_user and state.status != ConversationStatus.COMPLETED:
             state.transition_to(ConversationStatus.COMPLETED)
 
-    def _format_model_output(self, model_output: list[dict[str, Any]]) -> list[Tool]:
+    def _format_model_output(
+        self,
+        model_output: list[dict[str, Any]],
+        tool_choice: Literal["required", "none", "auto"],
+    ) -> list[Tool] | str:
         """Format the model output into a list of dictionaries."""
         if not model_output:
             return []
@@ -430,6 +444,9 @@ class EndpointHandler:
 
         if generated_text is None:
             raise ModelOutputError("No generated_text found in the model output.")
+
+        if tool_choice == "none":
+            return generated_text
 
         try:
             logger.debug(f"Generated text: {generated_text}")
