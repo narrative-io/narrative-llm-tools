@@ -103,21 +103,17 @@ class ConversationState(BaseModel):
             if k not in cls.RESERVED_KEYS and not k.startswith("_")
         }
 
-        messages: list[dict[str, Any]] = request_data.get("inputs", [])
-        tool_catalog_message = next((msg for msg in messages if msg["role"] == "tool_catalog"), None)
-        tool_catalog = tool_catalog_message.get("content", {}) if tool_catalog_message else {}
-
+        messages = request_data.get("inputs", [])
         tool_choice = request_data.get("tool_choice", "required")
-        tool_catalog_params: dict[str, Any] = request_data.get("tools", {})
+        tool_catalog_params = request_data.get("tools", {})
+
+        tool_catalog = cls._extract_tool_catalog(messages)
 
         if tool_catalog_params and tool_catalog != {}:
             raise ValueError("Both tool_catalog and tools are provided. Please provide only one.")
 
-        tools_data = tool_catalog_params if tool_catalog_params else tool_catalog
-        tools_instance = (
-            JsonSchemaTools.model_validate(tools_data)
-            if tools_data and tools_data != {} and tool_choice != "none"
-            else JsonSchemaTools.only_user_response_tool() if tool_choice != "none" else None
+        tools_instance = cls._create_tools_instance(
+            tool_catalog_params or tool_catalog, tool_choice
         )
 
         status = (
@@ -135,6 +131,25 @@ class ConversationState(BaseModel):
             pipeline_params=pipeline_params,
             status=status,
         )
+
+    @staticmethod
+    def _extract_tool_catalog(messages: list[dict[str, Any]]) -> dict[str, Any]:
+        """Extract tool catalog from messages if present."""
+        tool_catalog_message = next(
+            (msg for msg in messages if msg["role"] == "tool_catalog"), None
+        )
+        return json.loads(tool_catalog_message.get("content", "{}")) if tool_catalog_message else {}
+
+    @staticmethod
+    def _create_tools_instance(
+        tools_data: dict[str, Any],
+        tool_choice: Literal["required", "auto", "none"],
+    ) -> JsonSchemaTools | None:
+        """Create tools instance based on provided data and tool choice."""
+        if not tools_data or tool_choice == "none":
+            return None if tool_choice == "none" else JsonSchemaTools.only_user_response_tool()
+
+        return JsonSchemaTools.model_validate(tools_data)
 
     @field_validator("max_tool_rounds", mode="before")
     def validate_positive(cls, value: int) -> int:
