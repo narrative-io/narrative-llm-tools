@@ -103,8 +103,17 @@ class ConversationState(BaseModel):
             if k not in cls.RESERVED_KEYS and not k.startswith("_")
         }
 
+        messages: list[dict[str, Any]] = request_data.get("inputs", [])
+        tool_catalog_message = next((msg for msg in messages if msg["role"] == "tool_catalog"), None)
+        tool_catalog = tool_catalog_message.get("content", {}) if tool_catalog_message else {}
+
         tool_choice = request_data.get("tool_choice", "required")
-        tools_data = request_data.get("tools", {})
+        tool_catalog_params: dict[str, Any] = request_data.get("tools", {})
+
+        if tool_catalog_params and tool_catalog != {}:
+            raise ValueError("Both tool_catalog and tools are provided. Please provide only one.")
+
+        tools_data = tool_catalog_params if tool_catalog_params else tool_catalog
         tools_instance = (
             JsonSchemaTools.model_validate(tools_data)
             if tools_data and tools_data != {} and tool_choice != "none"
@@ -277,7 +286,7 @@ class ConversationState(BaseModel):
             ValueError: If the message role is invalid or adding it violates state constraints.
         """
         logger.info(f"Adding message: {message}")
-        
+
         if message.role == "tool_calls":
             self._handle_tool_call(message)
         elif message.role == "tool_response":
@@ -286,7 +295,7 @@ class ConversationState(BaseModel):
             self._handle_assistant_response(message)
 
         logger.info(f"Conversation state after adding message: {self}")
-        
+
     def _handle_assistant_response(self, message: ConversationMessage) -> None:
         """
         Handles adding an assistant response message and updating state accordingly.
