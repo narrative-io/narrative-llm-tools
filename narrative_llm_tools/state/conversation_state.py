@@ -145,10 +145,13 @@ class ConversationState(BaseModel):
     @staticmethod
     def _extract_tool_catalog(messages: list[dict[str, Any]]) -> dict[str, Any]:
         """Extract tool catalog from messages if present."""
-        tool_catalog_message = next(
-            (msg for msg in messages if msg["role"] == "tool_catalog"), None
-        )
-        return json.loads(tool_catalog_message.get("content", "{}")) if tool_catalog_message else {}
+        for message in messages:
+            msg = ConversationMessage.model_validate(message)
+            if msg.role == "tool_catalog":
+                tools_json: dict[str, Any] = json.loads(msg.content)
+                return tools_json
+
+        return {}
 
     @staticmethod
     def _create_tools_instance(
