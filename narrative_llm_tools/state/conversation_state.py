@@ -3,7 +3,7 @@ import logging
 from enum import Enum
 from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from narrative_llm_tools.rest_api_client.rest_api_client import RestApiClient
 from narrative_llm_tools.tools.json_schema_tools import JsonSchemaTools, Tool
@@ -15,10 +15,20 @@ class ConversationMessage(BaseModel):
     """
     Represents a single message in a conversation. The `role` indicates who/what
     generated the message (e.g. user, assistant, system, tool, etc.).
+
+    Supports alternative field names:
+    - 'from' as alias for 'role'
+    - 'value' as alias for 'content'
     """
 
-    role: Literal["user", "assistant", "system", "tool_response", "tool_catalog", "tool_calls"]
-    content: str
+    role: Literal["user", "assistant", "system", "tool_response", "tool_catalog", "tool_calls"] = (
+        Field(validation_alias="from")
+    )
+    content: str = Field(validation_alias="value")
+
+    model_config = {
+        "populate_by_name": True,
+    }
 
 
 class ToolResponse(BaseModel):
