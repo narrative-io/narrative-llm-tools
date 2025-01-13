@@ -601,3 +601,118 @@ def test_must_respond():
         pipeline_params={},
     )
     assert not state.must_respond()
+
+def test_extract_tool_catalog_from_messages():
+    # Define a sample tool catalog following the established schema
+    tool_catalog = {
+        "type": "array",
+        "items": {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "required": ["name", "parameters"],
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "enum": ["test_tool"],
+                            "description": "A test tool"
+                        },
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "param1": {
+                                    "type": "string",
+                                    "description": "A test parameter"
+                                }
+                            },
+                            "required": ["param1"],
+                            "additionalProperties": False
+                        }
+                    },
+                    "additionalProperties": False
+                }
+            ]
+        }
+    }
+
+    # Create request with tool catalog in messages
+    request_data = {
+        "inputs": [
+            {"role": "system", "content": "You are a helpful assistant"},
+            {"role": "tool_catalog", "content": json.dumps(tool_catalog)},
+            {"role": "user", "content": "Hello"}
+        ]
+    }
+
+    # Create conversation state
+    state = ConversationState.from_api_request(request_data)
+
+    # Verify the tool catalog was extracted and parsed correctly
+    assert state.tools_catalog is not None
+    assert len(state.tools_catalog.items.anyOf) == 1
+    assert state.tools_catalog.items.anyOf[0].properties.name.enum[0] == "test_tool"
+
+def test_tool_catalog_message_and_tools_param_conflict():
+    # Define conflicting tool catalogs following the established schema
+    tool_catalog_message = {
+        "type": "array",
+        "items": {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "required": ["name", "parameters"],
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "enum": ["tool1"],
+                            "description": "Tool 1"
+                        },
+                        "parameters": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": True
+                        }
+                    },
+                    "additionalProperties": False
+                }
+            ]
+        }
+    }
+
+    tools_param = {
+        "type": "array",
+        "items": {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "required": ["name", "parameters"],
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "enum": ["tool2"],
+                            "description": "Tool 2"
+                        },
+                        "parameters": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": True
+                        }
+                    },
+                    "additionalProperties": False
+                }
+            ]
+        }
+    }
+
+    request_data = {
+        "inputs": [
+            {"role": "system", "content": "You are a helpful assistant"},
+            {"role": "tool_catalog", "content": json.dumps(tool_catalog_message)},
+            {"role": "user", "content": "Hello"}
+        ],
+        "tools": tools_param
+    }
+
+    # Verify that providing both raises a ValueError
+    with pytest.raises(ValueError, match="Both tool_catalog and tools are provided"):
+        ConversationState.from_api_request(request_data)

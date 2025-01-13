@@ -3,7 +3,7 @@ import logging
 from enum import Enum
 from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from narrative_llm_tools.rest_api_client.rest_api_client import RestApiClient
 from narrative_llm_tools.tools.json_schema_tools import JsonSchemaTools, Tool
@@ -15,10 +15,20 @@ class ConversationMessage(BaseModel):
     """
     Represents a single message in a conversation. The `role` indicates who/what
     generated the message (e.g. user, assistant, system, tool, etc.).
+
+    Supports alternative field names:
+    - 'from' as alias for 'role'
+    - 'value' as alias for 'content'
     """
 
-    role: Literal["user", "assistant", "system", "tool_response", "tool_catalog", "tool_calls"]
-    content: str
+    role: Literal["user", "assistant", "system", "tool_response", "tool_catalog", "tool_calls"] = (
+        Field(validation_alias="from")
+    )
+    content: str = Field(validation_alias="value")
+
+    model_config = {
+        "populate_by_name": True,
+    }
 
 
 class ToolResponse(BaseModel):
@@ -103,12 +113,17 @@ class ConversationState(BaseModel):
             if k not in cls.RESERVED_KEYS and not k.startswith("_")
         }
 
+        messages = request_data.get("inputs", [])
         tool_choice = request_data.get("tool_choice", "required")
-        tools_data = request_data.get("tools", {})
-        tools_instance = (
-            JsonSchemaTools.model_validate(tools_data)
-            if tools_data and tools_data != {} and tool_choice != "none"
-            else JsonSchemaTools.only_user_response_tool() if tool_choice != "none" else None
+        tool_catalog_params = request_data.get("tools", {})
+
+        tool_catalog = cls._extract_tool_catalog(messages)
+
+        if tool_catalog_params and tool_catalog != {}:
+            raise ValueError("Both tool_catalog and tools are provided. Please provide only one.")
+
+        tools_instance = cls._create_tools_instance(
+            tool_catalog_params or tool_catalog, tool_choice
         )
 
         status = (
@@ -126,6 +141,28 @@ class ConversationState(BaseModel):
             pipeline_params=pipeline_params,
             status=status,
         )
+
+    @staticmethod
+    def _extract_tool_catalog(messages: list[dict[str, Any]]) -> dict[str, Any]:
+        """Extract tool catalog from messages if present."""
+        for message in messages:
+            msg = ConversationMessage.model_validate(message)
+            if msg.role == "tool_catalog":
+                tools_json: dict[str, Any] = json.loads(msg.content)
+                return tools_json
+
+        return {}
+
+    @staticmethod
+    def _create_tools_instance(
+        tools_data: dict[str, Any],
+        tool_choice: Literal["required", "auto", "none"],
+    ) -> JsonSchemaTools | None:
+        """Create tools instance based on provided data and tool choice."""
+        if not tools_data or tool_choice == "none":
+            return None if tool_choice == "none" else JsonSchemaTools.only_user_response_tool()
+
+        return JsonSchemaTools.model_validate(tools_data)
 
     @field_validator("max_tool_rounds", mode="before")
     def validate_positive(cls, value: int) -> int:
@@ -277,7 +314,7 @@ class ConversationState(BaseModel):
             ValueError: If the message role is invalid or adding it violates state constraints.
         """
         logger.info(f"Adding message: {message}")
-        
+
         if message.role == "tool_calls":
             self._handle_tool_call(message)
         elif message.role == "tool_response":
@@ -286,7 +323,7 @@ class ConversationState(BaseModel):
             self._handle_assistant_response(message)
 
         logger.info(f"Conversation state after adding message: {self}")
-        
+
     def _handle_assistant_response(self, message: ConversationMessage) -> None:
         """
         Handles adding an assistant response message and updating state accordingly.
