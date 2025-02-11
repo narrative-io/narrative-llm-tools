@@ -558,6 +558,7 @@ dependencies = [
     { name = "lm-format-enforcer" },
     { name = "pydantic" },
     { name = "requests" },
+    { name = "strsim" },
     { name = "torch" },
     { name = "tqdm" },
     { name = "transformers" },
@@ -574,6 +575,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "requests-mock" },
     { name = "ruff" },
+    { name = "strsim" },
     { name = "tomli" },
     { name = "types-cachetools" },
     { name = "types-jmespath" },
@@ -590,6 +592,7 @@ requires-dist = [
     { name = "lm-format-enforcer", specifier = ">=0.10.9" },
     { name = "pydantic" },
     { name = "requests", specifier = ">=2.28.1" },
+    { name = "strsim", specifier = "==0.0.3" },
     { name = "torch", specifier = "==2.3.1" },
     { name = "tqdm", specifier = ">=4.66.4" },
     { name = "transformers", specifier = ">=4.47.0" },
@@ -606,6 +609,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "requests-mock", specifier = ">=1.12.1" },
     { name = "ruff", specifier = ">=0.8.4" },
+    { name = "strsim", specifier = "==0.0.3" },
     { name = "tomli", specifier = ">=2.2.1" },
     { name = "types-cachetools", specifier = ">=5.3.0.7" },
     { name = "types-jmespath", specifier = ">=1.0.1" },
@@ -1226,6 +1230,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050 },
+]
+
+[[package]]
+name = "strsim"
+version = "0.0.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/04/11/4788bfa6ea590f5542a37e3897822255b81b47ee9bf324bc8b54c608e948/strsim-0.0.3.tar.gz", hash = "sha256:250cf1f698eceb00856cb368a417790d5f951bdc6329a799d89c6f6b85e41bcb", size = 14747 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0d/95/14e5dea00c3bc73e5962261442957ee3691de8d51c97909ba7b2f46bf584/strsim-0.0.3-py3-none-any.whl", hash = "sha256:e5cf287392f906f0c6338dba8173ba9a05d8c3c173a74082c91220421d64d9fc", size = 42360 },
 ]
 
 [[package]]
