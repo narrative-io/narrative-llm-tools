@@ -1,13 +1,14 @@
 import json
 import re
 from collections.abc import Iterator
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from jsonschema import ValidationError, validate
 
 StringOrMessage = str | list[dict[str, Any]]
 
 
+@runtime_checkable
 class RewardFn(Protocol):
     """Protocol defining the interface for reward functions in a completion evaluation system.
 
@@ -53,8 +54,27 @@ class RewardFn(Protocol):
         self,
         completions: list[StringOrMessage],
         prompts: list[StringOrMessage] | None = None,
-        **kwargs: list[Any],
+        **kwargs: dict[str, list[Any]],
     ) -> list[float]: ...
+
+
+def validate_reward_fn_inputs(
+    completions: list[StringOrMessage],
+    prompts: list[StringOrMessage] | None,
+    **kwargs: dict[str, list[Any]],
+) -> None:
+    """Validates that all input lists have the same length."""
+    completion_len = len(completions)
+    if prompts is not None and len(prompts) != completion_len:
+        raise ValueError(
+            f"prompts length ({len(prompts)}) != completions length ({completion_len})"
+        )
+
+    for key, value in kwargs.items():
+        if len(value) != completion_len:
+            raise ValueError(
+                f"kwargs[{key}] length ({len(value)}) != completions length ({completion_len})"
+            )
 
 
 def get_first_message_content_by_role(
@@ -139,7 +159,7 @@ def count_thoughts(text: str) -> tuple[int, int]:
 def format_reward(
     completions: list[StringOrMessage],
     prompts: list[StringOrMessage] | None = None,
-    **kwargs: list[Any],
+    **kwargs: dict[str, list[Any]],
 ) -> list[float]:
     """Evaluates if model completions follow the expected format structure with thoughts
        and tool calls.
@@ -168,6 +188,7 @@ def format_reward(
         <|tool_calls|>[{"type": "function", "name": "get_weather"}]
         <|eot_id|>
     """
+    validate_reward_fn_inputs(completions, prompts, **kwargs)
     pattern = (
         r"^(?:<\|start_thought\|>.*?<\|end_thought\|>\s*)*"
         r"<\|tool_calls\|>\[.*?\]\s*"
@@ -190,9 +211,10 @@ def format_reward(
 def thought_steps_reward(
     completions: list[StringOrMessage],
     prompts: list[StringOrMessage] | None = None,
-    **kwargs: list[Any],
+    **kwargs: dict[str, list[Any]],
 ) -> list[float]:
     """Reward function that checks for the presence and quality of thought steps."""
+    validate_reward_fn_inputs(completions, prompts, **kwargs)
     rewards = []
 
     for completion in completions:
@@ -224,70 +246,43 @@ def validate_tool_call_against_schema(tool_call: str, schema: dict[str, Any]) ->
         return False
 
 
-def _validate_tool_call_structure(call: Any) -> bool:
-    """Validate the basic structure of a single tool call."""
-    if not isinstance(call, dict):
-        return False
-
-    required_fields = {"name", "parameters"}
-    required_params = {"attribute_id", "expression", "type"}
-
-    return (
-        all(field in call for field in required_fields)
-        and isinstance(call["parameters"], dict)
-        and all(param in call["parameters"] for param in required_params)
-    )
-
-
 def tool_calls_validity_reward(
     completions: list[StringOrMessage],
     prompts: list[StringOrMessage] | None = None,
-    **kwargs: list[Any],
+    **kwargs: dict[str, list[Any]],
 ) -> list[float]:
     """Reward function that validates the structure and content of tool calls."""
+    validate_reward_fn_inputs(completions, prompts, **kwargs)
     rewards = []
+    prompts_iter: list[StringOrMessage] | list[None] = (
+        prompts if prompts is not None else [""] * len(completions)
+    )
 
-    for i, completion in enumerate(completions):
+    for completion, prompt in zip(completions, prompts_iter, strict=False):
         content = (
             get_first_message_content_by_role(completion, "assistant")
             if isinstance(completion, list)
             else completion
         )
+        reward = 0.0
 
         try:
-            # Extract and parse tool calls
-            tool_calls_match = re.search(r"<\|tool_calls\|>(\[.*?\])", content, re.DOTALL)
-            if not tool_calls_match:
-                rewards.append(0.0)
-                continue
+            tool_calls_match = re.search(r"<\|tool_calls\|>(.*?)<\|eot_id\|>", content, re.DOTALL)
 
-            tool_calls = json.loads(tool_calls_match.group(1))
-            if not isinstance(tool_calls, list):
-                rewards.append(0.0)
-                continue
+            if tool_calls_match:
+                tool_calls = json.loads(tool_calls_match.group(1))
 
-            # Validate against schema if available
-            if isinstance(prompts, list) and i < len(prompts):
-                prompt = prompts[i]
                 if isinstance(prompt, list):
-                    if tool_catalog_str := get_first_message_content_by_role(
-                        prompt, "tool_catalog"
-                    ):
-                        try:
-                            schema = json.loads(tool_catalog_str)
-                            if not validate_tool_call_against_schema(
-                                tool_calls_match.group(1), schema
-                            ):
-                                rewards.append(0.0)
-                                continue
-                        except json.JSONDecodeError:
-                            pass
+                    tool_catalog_str = get_first_message_content_by_role(prompt, "tool_catalog")
+                    if tool_catalog_str:
+                        schema = json.loads(tool_catalog_str)
+                        if validate_tool_call_against_schema(json.dumps(tool_calls), schema):
+                            reward = 1.0
 
-            # Validate structure of each tool call
-            rewards.append(1.0 if all(map(_validate_tool_call_structure, tool_calls)) else 0.0)
+        except Exception:
+            pass
 
-        except json.JSONDecodeError:
-            rewards.append(0.0)
+        rewards.append(reward)
 
     return rewards
 
@@ -302,8 +297,9 @@ def get_repetition_penalty_reward(ngram_size: int = 3, max_penalty: float = -0.5
     def repetition_penalty_reward(
         completions: list[StringOrMessage],
         prompts: list[StringOrMessage] | None = None,
-        **kwargs: list[Any],
+        **kwargs: dict[str, list[Any]],
     ) -> list[float]:
+        validate_reward_fn_inputs(completions, prompts, **kwargs)
         rewards = []
 
         for completion in completions:
@@ -344,9 +340,10 @@ def combine_rewards(
     reward_functions: list[tuple[RewardFn, float]],
     completions: list[StringOrMessage],
     prompts: list[StringOrMessage] | None = None,
-    **kwargs: list[Any],
+    **kwargs: dict[str, list[Any]],
 ) -> list[float]:
     """Combines multiple reward functions with weights."""
+    validate_reward_fn_inputs(completions, prompts, **kwargs)
     if not reward_functions:
         return [0.0] * len(completions)
 
@@ -359,10 +356,7 @@ def combine_rewards(
     combined_rewards = [0.0] * len(completions)
 
     for func, weight in zip(functions, normalized_weights, strict=False):
-        if "prompts" in func.__code__.co_varnames and prompts is not None:
-            rewards = func(prompts=prompts, completions=completions, **kwargs)
-        else:
-            rewards = func(completions=completions, **kwargs)
+        rewards = func(completions=completions, prompts=prompts, **kwargs)
 
         for i, reward in enumerate(rewards):
             combined_rewards[i] += reward * weight
@@ -376,7 +370,7 @@ def get_default_reward_function(*, include_schema_validation: bool = True) -> Re
     def default_reward_function(
         completions: list[StringOrMessage],
         prompts: list[StringOrMessage] | None = None,
-        **kwargs: list[Any],
+        **kwargs: dict[str, list[Any]],
     ) -> list[float]:
         reward_functions = [
             (format_reward, 0.25),
