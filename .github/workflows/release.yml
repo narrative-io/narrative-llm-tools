@@ -86,7 +86,7 @@ jobs:
           git push origin $BRANCH_NAME
 
       - name: Create pull request
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v7
         with:
           branch: "release-${{ github.event.inputs.version }}"
           title: "Release v${{ github.event.inputs.version }}"
