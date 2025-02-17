@@ -1,0 +1,37 @@
+name: Tag and Release
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  create-tag-and-release:
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get version from PR title
+        id: extract_version
+        run: |
+          VERSION=$(echo "${{ github.event.pull_request.title }}" | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Create and push tag
+        run: |
+          git tag -a v${{ env.VERSION }} -m "Release v${{ env.VERSION }}"
+          git push origin v${{ env.VERSION }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: Release v${{ env.VERSION }}
+          body: "Automatically generated release for v${{ env.VERSION }}."
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
