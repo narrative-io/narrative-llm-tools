@@ -1,4 +1,12 @@
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: detect-private-key
+
   - repo: local
     hooks:
       - id: mypy
@@ -7,7 +15,21 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
-        
+
+      - id: ruff
+        name: ruff
+        entry: uv run ruff check . --fix
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format .
+        language: system
+        types_or: [python, jupyter]
+        pass_filenames: false
+
       - id: pytest
         name: pytest
         entry: uv run pytest
@@ -17,6 +39,6 @@ repos:
 
       - id: check-version
         name: Check version format
-        entry: python -c 'import sys, tomli; from packaging.version import parse; parse(tomli.load(open("pyproject.toml", "rb"))["project"]["version"])'
+        entry: .venv/bin/python -c 'import sys, tomli; from packaging.version import parse; parse(tomli.load(open("pyproject.toml", "rb"))["project"]["version"])'
         language: system
         files: ^pyproject\.toml$
