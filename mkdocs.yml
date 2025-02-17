@@ -1,0 +1,4 @@
+site_name: Narrative LLM Tools Documentation
+nav:
+  - Home: index.md
+  - Reward Functions: reward_functions/index.md

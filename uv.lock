@@ -534,7 +534,7 @@ wheels = [
 
 [[package]]
 name = "narrative-llm-tools"
-version = "0.1.2"
+version = "0.1.4"
 source = { editable = "." }
 dependencies = [
     { name = "cachetools" },
