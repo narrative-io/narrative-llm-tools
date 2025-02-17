@@ -67,14 +67,6 @@ jobs:
         run: |
           sed -i "s|narrative-llm-tools @ git+https://github.com/narrative-io/narrative-llm-tools.git@.*|narrative-llm-tools @ git+https://github.com/narrative-io/narrative-llm-tools.git@v${{ github.event.inputs.version }}|" README.md
 
-      - name: Commit version update
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add pyproject.toml README.md
-          git commit -m "Bump version to ${{ github.event.inputs.version }}"
-          git push
-
       - name: Create version bump branch
         run: |
           BRANCH_NAME="release-${{ github.event.inputs.version }}"
