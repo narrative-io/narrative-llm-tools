@@ -61,11 +61,12 @@ jobs:
 
       - name: Update version in pyproject.toml
         run: |
-          sed -i "/^\[project\]/,/^\[.*\]/ s/version = \".*\"/version = \"${{ github.event.inputs.version }}\"/" pyproject.toml
+          sed -i '/^\[project\]/,/^\[/ s/^version = ".*"/version = "${{ github.event.inputs.version }}"/' pyproject.toml
 
       - name: Update README version
         run: |
-          sed -i "s|narrative-llm-tools @ git+https://github.com/narrative-io/narrative-llm-tools.git@.*|narrative-llm-tools @ git+https://github.com/narrative-io/narrative-llm-tools.git@v${{ github.event.inputs.version }}|" README.md
+          sed -i 's/@v[0-9]\+\.[0-9]\+\.[0-9]\+/@v${{ github.event.inputs.version }}/' README.md
+
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@v7
