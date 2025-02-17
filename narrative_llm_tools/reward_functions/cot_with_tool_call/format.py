@@ -190,8 +190,8 @@ def format_reward(
     """
     validate_reward_fn_inputs(completions, prompts, **kwargs)
     pattern = (
-        r"^(?:<\|start_thought\|>[^<]*(?:<(?!/\|end_thought\|>)[^<]*)*<\|end_thought\|>\s*)*"
-        r"<\|tool_calls\|>\[(?:[^[\]]|\[[^[\]]*\])*\]\s*"
+        r"^(?:<\|start_thought\|>[^<]*?<\|end_thought\|>\s*)*"
+        r"<\|tool_calls\|>\[.*?\]\s*"
         r"<\|eot_id\|>$"
     )
 

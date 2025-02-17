@@ -10,8 +10,7 @@ from narrative_llm_tools.state.conversation import validate_line
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Validate a .jsonl file against the Narrative Conversation "
-            "File Format specification."
+            "Validate a .jsonl file against the Narrative Conversation File Format specification."
         )
     )
     parser.add_argument("file", help="Path to the JSONL file to validate.")

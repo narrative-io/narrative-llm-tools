@@ -64,7 +64,7 @@ class Conversation(BaseModel):
                 tool_catalog_count += 1
                 if tool_catalog_count > 1:
                     msg_errors.append(
-                        "Multiple 'tool_catalog' messages " "found in a single conversation."
+                        "Multiple 'tool_catalog' messages found in a single conversation."
                     )
 
                 # Must be second if system exists, else first
