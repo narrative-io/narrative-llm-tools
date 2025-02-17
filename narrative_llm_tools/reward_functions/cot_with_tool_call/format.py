@@ -1,14 +1,17 @@
-import re
 import json
-from typing import Iterator, List, Dict, Any, Protocol, Tuple, Callable, Optional, Union
+import re
+from collections.abc import Iterator
+from typing import Any, Protocol
+
 from jsonschema import ValidationError, validate
 
-StringOrMessage = Union[str, List[Dict[str, Any]]]
+StringOrMessage = str | list[dict[str, Any]]
+
 
 class RewardFn(Protocol):
     """Protocol defining the interface for reward functions in a completion evaluation system.
 
-    This protocol specifies the call signature for reward functions that evaluate model 
+    This protocol specifies the call signature for reward functions that evaluate model
     completions and assign numerical scores. Reward functions implementing this protocol
     are used to assess various aspects of model outputs, such as format compliance,
     content quality, or specific behavioral metrics.
@@ -18,7 +21,7 @@ class RewardFn(Protocol):
 
     Args:
         completions: A nested list structure representing a batch of conversation turns.
-            Each inner list contains message dictionaries with keys like 'role' and 
+            Each inner list contains message dictionaries with keys like 'role' and
             'content' representing a single conversation.
             Example structure:
             [
@@ -45,15 +48,21 @@ class RewardFn(Protocol):
         ...     def __call__(self, completions, prompts, **kwargs):
         ...         return [1.0 for _ in completions]  # Perfect format score
     """
+
     def __call__(
         self,
-        completions: List[StringOrMessage],
-        prompts: Optional[List[StringOrMessage]] = None,
-        **kwargs: List[Any]
-    ) -> List[float]:
-        ...
+        completions: list[StringOrMessage],
+        prompts: list[StringOrMessage] | None = None,
+        **kwargs: list[Any],
+    ) -> list[float]: ...
 
-def get_first_message_content_by_role(messages: List[Dict[str, Any]], role: str, role_property: str = "role", content_property: str = "content") -> str:
+
+def get_first_message_content_by_role(
+    messages: list[dict[str, Any]],
+    role: str,
+    role_property: str = "role",
+    content_property: str = "content",
+) -> str:
     """Extract content from the first message matching the specified role in a conversation.
 
     This function searches through a list of message dictionaries and returns the content
@@ -62,9 +71,9 @@ def get_first_message_content_by_role(messages: List[Dict[str, Any]], role: str,
     chat-like message structure.
 
     Args:
-        messages: A list of message dictionaries, where each dictionary represents a 
+        messages: A list of message dictionaries, where each dictionary represents a
             conversation turn and contains at least 'role' and 'content' keys.
-            Example: [{'role': 'user', 'content': 'Hello'}, 
+            Example: [{'role': 'user', 'content': 'Hello'},
                      {'role': 'assistant', 'content': 'Hi'}]
         role: The role to search for (e.g., 'user', 'assistant', 'system')
 
@@ -91,10 +100,10 @@ def get_first_message_content_by_role(messages: List[Dict[str, Any]], role: str,
     return message.get(content_property, "") if message else ""
 
 
-def count_thoughts(text: str) -> Tuple[int, int]:
+def count_thoughts(text: str) -> tuple[int, int]:
     """Count the number of thought segments and their total character length in a text.
 
-    This function searches for thought segments enclosed in <|start_thought|> and 
+    This function searches for thought segments enclosed in <|start_thought|> and
     <|end_thought|> tags within the input text. It counts both the number of distinct
     thought segments and the total number of characters contained within all thoughts
     (excluding the tags themselves).
@@ -110,14 +119,14 @@ def count_thoughts(text: str) -> Tuple[int, int]:
           (excluding the tag markers)
 
     Example:
-        >>> text = "<|start_thought|>Check weather<|end_thought|> other text <|start_thought|>Call API<|end_thought|>"
+        >>> text = "<|start_thought|>one<|end_thought|> two <|start_thought|>three<|end_thought|>"
         >>> count_thoughts(text)
         (2, 17)  # 2 thoughts with combined length of "Check weather" + "Call API"
 
     Notes:
         - Uses non-greedy regex matching to handle nested or sequential thought segments
         - Counts only the characters within the thought segments, not the tag markers
-        - Empty thought segments (<|start_thought|><|end_thought|>) are counted as 
+        - Empty thought segments (<|start_thought|><|end_thought|>) are counted as
           segments with zero length
         - The DOTALL flag allows matching thoughts containing newlines
     """
@@ -126,8 +135,14 @@ def count_thoughts(text: str) -> Tuple[int, int]:
     total_chars = sum(len(match) for match in matches)
     return len(matches), total_chars
 
-def format_reward(completions: List[StringOrMessage], prompts: Optional[List[StringOrMessage]] = None, **kwargs: List[Any]) -> List[float]:
-    """Evaluates if model completions follow the expected format structure with thoughts and tool calls.
+
+def format_reward(
+    completions: list[StringOrMessage],
+    prompts: list[StringOrMessage] | None = None,
+    **kwargs: list[Any],
+) -> list[float]:
+    """Evaluates if model completions follow the expected format structure with thoughts
+       and tool calls.
 
     This function acts as a reward function that checks if each completion in the input follows
     a specific pattern with optional thought blocks followed by a tool calls block. The expected
@@ -137,9 +152,9 @@ def format_reward(completions: List[StringOrMessage], prompts: Optional[List[Str
     - An end-of-text identifier <|eot_id|>
 
     Args:
-        completions: A list of conversation turns, where each turn is a list of message 
+        completions: A list of conversation turns, where each turn is a list of message
             dictionaries. Each message dictionary contains role and content keys.
-        **kwargs: Additional keyword arguments (unused but included for compatibility 
+        **kwargs: Additional keyword arguments (unused but included for compatibility
             with reward function interface)
 
     Returns:
@@ -158,32 +173,44 @@ def format_reward(completions: List[StringOrMessage], prompts: Optional[List[Str
         r"<\|tool_calls\|>\[.*?\]\s*"
         r"<\|eot_id\|>$"
     )
-    
+
     rewards = []
     for completion in completions:
-        content = get_first_message_content_by_role(completion, "assistant") if not isinstance(completion, str) else completion
+        content = (
+            get_first_message_content_by_role(completion, "assistant")
+            if not isinstance(completion, str)
+            else completion
+        )
         match = bool(re.match(pattern, content, re.DOTALL | re.MULTILINE))
         rewards.append(1.0 if match else 0.0)
-    
+
     return rewards
 
 
-def thought_steps_reward(completions: List[StringOrMessage], prompts: Optional[List[StringOrMessage]] = None, **kwargs: List[Any]) -> List[float]:
+def thought_steps_reward(
+    completions: list[StringOrMessage],
+    prompts: list[StringOrMessage] | None = None,
+    **kwargs: list[Any],
+) -> list[float]:
     """Reward function that checks for the presence and quality of thought steps."""
     rewards = []
-    
+
     for completion in completions:
-        content = get_first_message_content_by_role(completion, "assistant") if isinstance(completion, list) else completion
+        content = (
+            get_first_message_content_by_role(completion, "assistant")
+            if isinstance(completion, list)
+            else completion
+        )
         num_thoughts, total_chars = count_thoughts(content)
-        
+
         # Combine both quantity and quality metrics
         thought_count_score = min(1.0, num_thoughts / 3)  # Encourage at least 3 thoughts
         length_score = min(total_chars / 1000, 1.0)  # Cap at 1000 chars
-        
+
         # Weight both aspects
         combined_score = 0.7 * thought_count_score + 0.3 * length_score
         rewards.append(combined_score)
-    
+
     return rewards
 
 
@@ -201,124 +228,137 @@ def _validate_tool_call_structure(call: Any) -> bool:
     """Validate the basic structure of a single tool call."""
     if not isinstance(call, dict):
         return False
-    
+
     required_fields = {"name", "parameters"}
     required_params = {"attribute_id", "expression", "type"}
-    
+
     return (
-        all(field in call for field in required_fields) and
-        isinstance(call["parameters"], dict) and
-        all(param in call["parameters"] for param in required_params)
+        all(field in call for field in required_fields)
+        and isinstance(call["parameters"], dict)
+        and all(param in call["parameters"] for param in required_params)
     )
 
+
 def tool_calls_validity_reward(
-    completions: List[StringOrMessage],
-    prompts: Optional[List[StringOrMessage]] = None,
-    **kwargs: List[Any]
-) -> List[float]:
+    completions: list[StringOrMessage],
+    prompts: list[StringOrMessage] | None = None,
+    **kwargs: list[Any],
+) -> list[float]:
     """Reward function that validates the structure and content of tool calls."""
     rewards = []
-    
+
     for i, completion in enumerate(completions):
-        content = get_first_message_content_by_role(completion, "assistant") if isinstance(completion, list) else completion
-        
+        content = (
+            get_first_message_content_by_role(completion, "assistant")
+            if isinstance(completion, list)
+            else completion
+        )
+
         try:
             # Extract and parse tool calls
-            tool_calls_match = re.search(r'<\|tool_calls\|>(\[.*?\])', content, re.DOTALL)
+            tool_calls_match = re.search(r"<\|tool_calls\|>(\[.*?\])", content, re.DOTALL)
             if not tool_calls_match:
                 rewards.append(0.0)
                 continue
-                
+
             tool_calls = json.loads(tool_calls_match.group(1))
             if not isinstance(tool_calls, list):
                 rewards.append(0.0)
                 continue
-            
+
             # Validate against schema if available
             if isinstance(prompts, list) and i < len(prompts):
                 prompt = prompts[i]
                 if isinstance(prompt, list):
-                    if tool_catalog_str := get_first_message_content_by_role(prompt, "tool_catalog"):
+                    if tool_catalog_str := get_first_message_content_by_role(
+                        prompt, "tool_catalog"
+                    ):
                         try:
                             schema = json.loads(tool_catalog_str)
-                            if not validate_tool_call_against_schema(tool_calls_match.group(1), schema):
+                            if not validate_tool_call_against_schema(
+                                tool_calls_match.group(1), schema
+                            ):
                                 rewards.append(0.0)
                                 continue
                         except json.JSONDecodeError:
                             pass
-            
+
             # Validate structure of each tool call
             rewards.append(1.0 if all(map(_validate_tool_call_structure, tool_calls)) else 0.0)
-            
+
         except json.JSONDecodeError:
             rewards.append(0.0)
-            
+
     return rewards
 
 
 def get_repetition_penalty_reward(ngram_size: int = 3, max_penalty: float = -0.5) -> RewardFn:
     """Creates a reward function that penalizes repetitive content in thoughts."""
-    
-    def zipngram(text: str, ngram_size: int) -> Iterator[Tuple[str, ...]]:
+
+    def zipngram(text: str, ngram_size: int) -> Iterator[tuple[str, ...]]:
         words = text.lower().split()
-        return zip(*[words[i:] for i in range(ngram_size)])
-    
-    def repetition_penalty_reward(completions: List[StringOrMessage], prompts: Optional[List[StringOrMessage]] = None, **kwargs: List[Any]) -> List[float]:
-        rewards = []    
-        
+        return zip(*[words[i:] for i in range(ngram_size)], strict=False)
+
+    def repetition_penalty_reward(
+        completions: list[StringOrMessage],
+        prompts: list[StringOrMessage] | None = None,
+        **kwargs: list[Any],
+    ) -> list[float]:
+        rewards = []
+
         for completion in completions:
-            content = get_first_message_content_by_role(completion, "assistant") if isinstance(completion, list) else completion
-                
-            thoughts = re.findall(
-                r'<\|start_thought\|>(.*?)<\|end_thought\|>', 
-                content, 
-                re.DOTALL
+            content = (
+                get_first_message_content_by_role(completion, "assistant")
+                if isinstance(completion, list)
+                else completion
             )
-            
+
+            thoughts = re.findall(r"<\|start_thought\|>(.*?)<\|end_thought\|>", content, re.DOTALL)
+
             if not thoughts:
                 rewards.append(0.0)
                 continue
-                
-            combined_thoughts = ' '.join(thoughts)
-            
+
+            combined_thoughts = " ".join(thoughts)
+
             if len(combined_thoughts.split()) < ngram_size:
                 rewards.append(0.0)
                 continue
-            
+
             ngrams = set()
             total = 0
             for ng in zipngram(combined_thoughts, ngram_size):
                 ngrams.add(ng)
                 total += 1
-            
+
             scaling = 1 - len(ngrams) / total
             reward = scaling * max_penalty
             rewards.append(reward)
-            
+
         return rewards
-    
+
     return repetition_penalty_reward
 
 
 def combine_rewards(
-    reward_functions: List[Tuple[RewardFn, float]],
-    completions: List[StringOrMessage],
-    prompts: Optional[List[StringOrMessage]] = None,
-    **kwargs: List[Any]
-) -> List[float]:
+    reward_functions: list[tuple[RewardFn, float]],
+    completions: list[StringOrMessage],
+    prompts: list[StringOrMessage] | None = None,
+    **kwargs: list[Any],
+) -> list[float]:
     """Combines multiple reward functions with weights."""
     if not reward_functions:
         return [0.0] * len(completions)
 
     # Normalize weights to sum to 1.0
-    functions, weights = zip(*reward_functions)
+    functions, weights = zip(*reward_functions, strict=False)
     total_weight = sum(weights)
     normalized_weights = [w / total_weight for w in weights]
 
     # Calculate combined rewards
     combined_rewards = [0.0] * len(completions)
 
-    for func, weight in zip(functions, normalized_weights):
+    for func, weight in zip(functions, normalized_weights, strict=False):
         if "prompts" in func.__code__.co_varnames and prompts is not None:
             rewards = func(prompts=prompts, completions=completions, **kwargs)
         else:
@@ -330,28 +370,23 @@ def combine_rewards(
     return combined_rewards
 
 
-def get_default_reward_function(
-    *, include_schema_validation: bool = True
-) -> RewardFn:
+def get_default_reward_function(*, include_schema_validation: bool = True) -> RewardFn:
     """Returns a default reward function with pre-configured weights."""
-    
+
     def default_reward_function(
-        completions: List[StringOrMessage],
-        prompts: Optional[List[StringOrMessage]] = None,
-        **kwargs: List[Any]
-    ) -> List[float]:
+        completions: list[StringOrMessage],
+        prompts: list[StringOrMessage] | None = None,
+        **kwargs: list[Any],
+    ) -> list[float]:
         reward_functions = [
             (format_reward, 0.25),
             (thought_steps_reward, 0.35),
             (tool_calls_validity_reward, 0.75),
-            (get_repetition_penalty_reward(), 0.15)
+            (get_repetition_penalty_reward(), 0.15),
         ]
-        
+
         return combine_rewards(
-            reward_functions=reward_functions,
-            prompts=prompts,
-            completions=completions,
-            **kwargs
+            reward_functions=reward_functions, prompts=prompts, completions=completions, **kwargs
         )
-    
+
     return default_reward_function

@@ -15,6 +15,20 @@ repos:
         types: [python]
         pass_filenames: false
 
+      - id: ruff
+        name: ruff
+        entry: uv run ruff check .
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: black
+        name: black
+        entry: uv run black .
+        language: system
+        types: [python]
+        pass_filenames: false
+
       - id: check-version
         name: Check version format
         entry: .venv/bin/python -c 'import sys, tomli; from packaging.version import parse; parse(tomli.load(open("pyproject.toml", "rb"))["project"]["version"])'
