@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        
+        <link rel="shortcut icon" href="../img/favicon.ico">
+        <title>Reward Functions - Narrative LLM Tools Documentation</title>
+        <link href="../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../css/brands.min.css" rel="stylesheet">
+        <link href="../css/solid.min.css" rel="stylesheet">
+        <link href="../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="..">Narrative LLM Tools Documentation</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href=".." class="nav-link">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="./" class="nav-link active" aria-current="page">Reward Functions</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href=".." class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" class="nav-link disabled">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#reward-functions-for-completion-evaluation" class="nav-link">Reward Functions for Completion Evaluation</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#table-of-contents" class="nav-link">Table of Contents</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#overview-of-the-rewardfn-protocol" class="nav-link">Overview of the RewardFn Protocol</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#reward-functions" class="nav-link">Reward Functions</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#examples-and-usage" class="nav-link">Examples and Usage</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="reward-functions-for-completion-evaluation">Reward Functions for Completion Evaluation</h1>
+<p>This repository defines a set of <strong>reward functions</strong> that can be used—individually or in combination—to evaluate model-generated responses (or "completions"). Each reward function implements a consistent interface and returns a list of float scores between 0 and 1, unless otherwise noted. These scores measure different aspects of a completion, such as format correctness, step-by-step reasoning, tool call validity, and more.</p>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#overview-of-the-rewardfn-protocol">Overview of the RewardFn Protocol</a></li>
+<li><a href="#reward-functions">Reward Functions</a><ul>
+<li><a href="#format_reward">format_reward</a></li>
+<li><a href="#thought_steps_reward">thought_steps_reward</a></li>
+<li><a href="#tool_calls_validity_reward">tool_calls_validity_reward</a></li>
+<li><a href="#get_repetition_penalty_reward">get_repetition_penalty_reward</a></li>
+<li><a href="#combine_rewards">combine_rewards</a></li>
+<li><a href="#get_default_reward_function">get_default_reward_function</a></li>
+</ul>
+</li>
+<li><a href="#examples-and-usage">Examples and Usage</a></li>
+</ol>
+<h2 id="overview-of-the-rewardfn-protocol">Overview of the RewardFn Protocol</h2>
+<p>All reward functions implement (or conform to) the following protocol (originally defined by HuggingFace <a href="https://github.com/huggingface/trl/blob/ba036576d4a62d91da0388b7e727f6656f4c08d7/trl/trainer/grpo_trainer.py#L108">here</a>):</p>
+<pre><code class="language-python">class RewardFn(Protocol):
+    def __call__(
+        self,
+        completions: list[StringOrMessage],
+        prompts: list[StringOrMessage] | None = None,
+        **kwargs: dict[str, list[Any]],
+    ) -&gt; list[float]:
+        ...
+</code></pre>
+<ul>
+<li><strong><code>completions</code></strong>: A list of model responses to evaluate. Each element can be either:</li>
+<li>A <strong>string</strong> of text (the model's response), or</li>
+<li>A <strong>list of messages</strong>, where each message is a dictionary with keys like <code>role</code> and <code>content</code>.</li>
+<li><strong><code>prompts</code></strong>: An optional list of prompt texts or messages that correspond to each completion.</li>
+<li><strong><code>**kwargs</code></strong>: Additional lists of arguments that may be needed for evaluation. Every list provided in <code>kwargs</code> must match the length of <code>completions</code>.</li>
+</ul>
+<blockquote>
+<p><strong>Return value</strong>: A list of floating-point scores (typically) between 0.0 and 1.0 (unless otherwise noted). The length of this list matches <code>len(completions)</code>.</p>
+</blockquote>
+<h2 id="reward-functions">Reward Functions</h2>
+<p>Below is a quick reference for the reward functions defined in this codebase. You can use them individually or chain them together with <a href="#combine_rewards"><code>combine_rewards</code></a>.</p>
+<h3 id="format_reward"><code>format_reward</code></h3>
+<p><strong>Purpose</strong>: Checks whether a completion follows a strict format:
+- Zero or more thought blocks:
+  <code>&lt;|start_thought|&gt; ... &lt;|end_thought|&gt;</code>
+- A mandatory tool calls block:
+  <code>&lt;|tool_calls|&gt;[ ... ]</code>
+- An end-of-text marker:
+  <code>&lt;|eot_id|&gt;</code></p>
+<p><strong>Return</strong>: <code>1.0</code> if the format is correct; <code>0.0</code> otherwise.</p>
+<details>
+  <summary>Key Points</summary>
+
+  - Uses a regex to verify the presence and ordering of these tags.
+  - Ideal for ensuring output structure, especially if your system needs well-defined JSON within `<|tool_calls|>`.
+
+  **Example**:
+  ```python
+  completions = [
+      # Correct format
+      "<|start_thought|>I should check the weather<|end_thought|>\n<|tool_calls|>[{\"type\": \"function\"}]\n<|eot_id|>",
+      # Incorrect format (missing <|eot_id|>)
+      "<|start_thought|>Test<|end_thought|>\n<|tool_calls|>[]"
+  ]
+  scores = format_reward(completions)
+  print(scores)  # [1.0, 0.0]
+  ```
+</details>
+
+<hr />
+<h3 id="thought_steps_reward"><code>thought_steps_reward</code></h3>
+<p><strong>Purpose</strong>: Encourages <strong>structured reasoning</strong> by rewarding:
+1. <strong>Number of thought segments</strong> (at least 3 is ideal).
+2. <strong>Total length of thought content</strong> (up to 1000 characters).</p>
+<p><strong>Return</strong>: A float in <code>[0.0, 1.0]</code> for each completion. A higher score implies more thorough and well-structured reasoning.</p>
+<details>
+  <summary>Scoring Breakdown</summary>
+
+  - Thought Count Score (70% weight)
+    - 1.0 for 3 or more thought segments (e.g., 3 `<|start_thought|> ... <|end_thought|>` blocks).
+    - For fewer than 3 segments, score is `num_thoughts / 3`.
+
+  - Length Score (30% weight)
+    - 1.0 for 1000+ characters combined in all thoughts.
+    - For shorter total length, score is `length / 1000`.
+
+  Final = `0.7 * thought_count_score + 0.3 * length_score`.
+
+  **Example**:
+  ```python
+  completions = [
+      "<|start_thought|>First step<|end_thought|><|start_thought|>Second<|end_thought|><|start_thought|>Third<|end_thought|>",
+      "<|start_thought|>Only one step<|end_thought|>"
+  ]
+  scores = thought_steps_reward(completions)
+  print(scores)  # [~1.0, a lower value]
+  ```
+</details>
+
+<hr />
+<h3 id="tool_calls_validity_reward"><code>tool_calls_validity_reward</code></h3>
+<p><strong>Purpose</strong>: Validates the <strong>tool call</strong> portion of the completion:
+1. Must appear between <code>&lt;|tool_calls|&gt;</code> and <code>&lt;|eot_id|&gt;</code>.
+2. Must be valid JSON.
+3. Optionally, must conform to a JSON schema if provided in the prompt.</p>
+<p><strong>Return</strong>: <code>1.0</code> if the tool call is valid; <code>0.0</code> otherwise.</p>
+<details>
+  <summary>Key Points</summary>
+
+  - Looks for `<|tool_calls|> ... <|eot_id|>` block in the completion.
+  - If the corresponding **prompt** (or messages in the prompt) includes a `"tool_catalog"` role with a schema, it is used for validation.
+  - Fails with `0.0` if the JSON is malformed or doesn't match the schema.
+
+  **Example**:
+  ```python
+  # Suppose we have a prompt that includes a tool catalog schema
+  prompt_with_schema = [
+      {"role": "tool_catalog", "content": '{"type": "array", ...}'}
+  ]
+  completion = "<|tool_calls|>[{\"name\": \"add\", \"parameters\": {\"a\": 5, \"b\": 3}}]<|eot_id|>"
+
+  score = tool_calls_validity_reward([completion], [prompt_with_schema])
+  print(score)  # [1.0 if valid]
+  ```
+</details>
+
+<hr />
+<h3 id="get_repetition_penalty_reward"><code>get_repetition_penalty_reward</code></h3>
+<p>This function returns a <strong>factory</strong> that creates a reward function to penalize repeated <strong>n-grams</strong> within <strong>thought segments</strong>.</p>
+<pre><code class="language-python">def get_repetition_penalty_reward(ngram_size: int = 3, max_penalty: float = -0.5) -&gt; RewardFn
+</code></pre>
+<ul>
+<li><strong><code>ngram_size</code></strong>: The size of n-grams to analyze. Default is 3 (e.g., three-word sequences).</li>
+<li><strong><code>max_penalty</code></strong>: The most negative penalty for high repetition. Default is <code>-0.5</code>.</li>
+</ul>
+<p><strong>Resulting Reward Function</strong>:
+- Extracts text from <code>&lt;|start_thought|&gt; ... &lt;|end_thought|&gt;</code> segments.
+- Calculates how many n-grams are repeated.
+- Returns a score in <code>[max_penalty, 0.0]</code>. <code>0.0</code> means no repetition or insufficient words for n-gram analysis. Approaching <code>max_penalty</code> means heavy repetition.</p>
+<details>
+  <summary>Example</summary>
+
+  ```python
+  repetition_reward_fn = get_repetition_penalty_reward(ngram_size=2, max_penalty=-0.3)
+
+  completions = [
+      "<|start_thought|>Unique words each time<|end_thought|>",
+      "<|start_thought|>Repeat repeat repeat<|end_thought|>"
+  ]
+  scores = repetition_reward_fn(completions)
+  print(scores)
+  # e.g., [0.0, ~-0.3]
+  ```
+</details>
+
+<hr />
+<h3 id="combine_rewards"><code>combine_rewards</code></h3>
+<p><strong>Purpose</strong>: <strong>Weighted</strong> combination of multiple reward functions. Takes a list of <code>(reward_function, weight)</code> pairs, applies each function, and computes a normalized weighted average.</p>
+<pre><code class="language-python">def combine_rewards(
+    reward_functions: list[tuple[RewardFn, float]],
+    completions: list[StringOrMessage],
+    prompts: list[StringOrMessage] | None = None,
+    **kwargs: dict[str, list[Any]],
+) -&gt; list[float]
+</code></pre>
+<p><strong>Process</strong>:
+1. Normalize weights so they sum to 1.
+2. Call each reward function to get scores.
+3. Combine the scores by multiplying each function’s results by its normalized weight, then summing.</p>
+<details>
+  <summary>Example</summary>
+
+  ```python
+  # Suppose we want to combine "format_reward" and "thought_steps_reward"
+  reward_fns = [
+      (format_reward, 0.4),
+      (thought_steps_reward, 0.6)
+  ]
+
+  completions = [
+      "<|start_thought|>Step 1<|end_thought|><|tool_calls|>[]<|eot_id|>",
+      "Missing eot tag"
+  ]
+  combined_scores = combine_rewards(reward_fns, completions)
+  print(combined_scores)  # Weighted average
+  ```
+</details>
+
+<hr />
+<h3 id="get_default_reward_function"><code>get_default_reward_function</code></h3>
+<p>Returns a single reward function that <strong>combines</strong> the following:
+1. <strong><code>format_reward</code></strong> (weight = 0.25)
+2. <strong><code>thought_steps_reward</code></strong> (weight = 0.35)
+3. <strong><code>tool_calls_validity_reward</code></strong> (weight = 0.75)
+4. <strong><code>repetition_penalty_reward</code></strong> (weight = 0.15, using defaults)</p>
+<p>Weights are internally normalized during computation. This function is useful if you want a <strong>quick</strong> default evaluation metric that checks:
+- Format correctness
+- Reasoning steps
+- Valid tool usage
+- Non-repetitive content</p>
+<details>
+  <summary>Example</summary>
+
+  ```python
+  reward_fn = get_default_reward_function(include_schema_validation=True)
+  completions = [
+      "<|start_thought|>I should clarify the question<|end_thought|>\n<|tool_calls|>[{\"name\": \"search\", \"parameters\": {}}]<|eot_id|>"
+  ]
+  scores = reward_fn(completions)
+  print(scores)  # e.g., [somewhere around 1.0 if all checks pass]
+  ```
+</details>
+
+<h2 id="examples-and-usage">Examples and Usage</h2>
+<p>Below is a simple demonstration of combining two reward functions (format and thought steps), then applying them to a few completions:</p>
+<pre><code class="language-python">from typing import Any
+
+# Suppose we have the reward functions available in the same namespace
+from reward_functions import (
+    format_reward,
+    thought_steps_reward,
+    combine_rewards
+)
+
+# Example completions
+completions = [
+    &quot;&lt;|start_thought|&gt;Thinking...&lt;|end_thought|&gt; &lt;|tool_calls|&gt;[]&lt;|eot_id|&gt;&quot;,
+    &quot;An invalid response with no tags.&quot;
+]
+
+# Combine with weighting
+reward_fns = [
+    (format_reward, 0.5),
+    (thought_steps_reward, 0.5)
+]
+
+# Evaluate
+scores = combine_rewards(reward_fns, completions)
+print(scores)  # e.g., [some_value, 0.0]
+</code></pre>
+<p>If you want an <strong>all-in-one</strong> evaluation without manually specifying weights, just use:</p>
+<pre><code class="language-python">from reward_functions import get_default_reward_function
+
+default_fn = get_default_reward_function()
+scores = default_fn(completions)
+print(scores)
+</code></pre></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../js/base.js"></script>
+        <script src="../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>
