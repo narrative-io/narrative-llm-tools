@@ -1,6 +1,6 @@
 [project]
 name = "narrative-llm-tools"
-version = "0.1.2"
+version = "0.1.3"
 description = "A set of tools to use when calling Narrative I/O LLMs."
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -22,8 +22,8 @@ dependencies = [
     "strsim==0.0.3",
 ]
 
-[tool.uv]  
-fork-strategy = "requires-python" 
+[tool.uv]
+fork-strategy = "requires-python"
 
 [project.scripts]
 narrative-validate-conversation = "narrative_llm_tools.cli.cli:main"
