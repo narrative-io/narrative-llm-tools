@@ -21,6 +21,11 @@ jobs:
           VERSION=$(echo "${{ github.event.pull_request.title }}" | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@github.com"
+
       - name: Create and push tag
         run: |
           git tag -a v${{ env.VERSION }} -m "Release v${{ env.VERSION }}"
