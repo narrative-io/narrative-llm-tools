@@ -67,16 +67,6 @@ jobs:
         run: |
           sed -i 's/@v[0-9]\+\.[0-9]\+\.[0-9]\+/@v${{ github.event.inputs.version }}/' README.md
 
-      - name: Create version bump branch
-        run: |
-          BRANCH_NAME="release-${{ github.event.inputs.version }}"
-          git checkout -b $BRANCH_NAME
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add pyproject.toml README.md
-          git commit -m "Bump version to ${{ github.event.inputs.version }}"
-          git push origin $BRANCH_NAME
-
       - name: Create pull request
         uses: peter-evans/create-pull-request@v7
         with:
