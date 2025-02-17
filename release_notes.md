@@ -4,6 +4,9 @@
 ### 🐛 Bug Fixes
 
 ### 🔧 Other Changes
+* ci: configure github user (#23) (d99f908)
+* Release v0.1.3 (#21) (40d1018)
+* ci: fix tagging and version update process (#22) (13e43d9)
 * ci: remove main commit (#20) (57374f3)
 * ci: codeql not on push to main (#19) (807ae25)
 * chore(deps): update peter-evans/create-pull-request action to v7 (#18) (604a782)

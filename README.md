@@ -30,7 +30,7 @@ pip install narrative-llm-tools
 To use the HuggingFace Inference Endpoints Handler, via HuggingFace Inference Endpoints you will need to reference this library from a `requirements.txt` file in your repository:
 
 ```text
-narrative-llm-tools @ git+https://github.com/narrative-io/narrative-llm-tools.git@v0.1.3
+narrative-llm-tools @ git+https://github.com/narrative-io/narrative-llm-tools.git@v0.1.4
 ```
 
 Additionally, you will need to add the following `handler.py` file to your repository:
