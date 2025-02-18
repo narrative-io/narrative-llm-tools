@@ -1,3 +1,4 @@
+from narrative_llm_tools import patches  # noqa: F401
 from narrative_llm_tools.handlers import EndpointHandler
 from narrative_llm_tools.rest_api_client.rest_api_client import RestApiClient
 from narrative_llm_tools.rest_api_client.types import (
