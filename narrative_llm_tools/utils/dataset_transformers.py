@@ -108,21 +108,29 @@ def grpo_conversation_transform(
         ValueError: If the input data structure is invalid or missing required fields.
     """
 
+    def determine_if_batch(*args: Any, **kwargs: Any) -> bool:
+        """Determines if the input represents a batch or single example."""
+        if not args:
+            return False
+
+        data = args[0]
+        if isinstance(data, tuple) and len(data) == 1:
+            data = data[0]
+
+        return "Batch" in type(data).__name__
+
     def transform_single_record(record: dict[str, Any]) -> dict[str, Any]:
         # We should only have a single key in our dict that isn't reserved (starting with "_")
         # We'll use that as the key that is holding the conversation
         group_name = next(k for k in record.keys() if not k.startswith("_"))
-
         if group_name is None:
             raise ValueError("No conversation found in record")
 
         conversation = record[group_name]
-
         if not isinstance(conversation, list):
             raise ValueError("Conversation is not a list")
 
-        completion = conversation[-1].content
-
+        completion = conversation[-1]["content"]
         if not isinstance(completion, str):
             raise ValueError("Completion is not a string")
 
@@ -222,9 +230,8 @@ def grpo_conversation_transform(
         Returns:
             Transformed data in either single example or batch format, depending on input.
         """
-        # Check if first argument is a batch
+        is_batch = determine_if_batch(*args, **kwargs)
         first_arg = args[0]
-        is_batch = isinstance(next(iter(first_arg.values())), list)
 
         if is_batch:
             if len(args) == 1:

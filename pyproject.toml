@@ -141,4 +141,5 @@ dev = [
     "djlint>=1.36.4",
     "strsim==0.0.3",
     "mkdocs>=1.6.1",
+    "datasets>=2.14.5",
 ]
