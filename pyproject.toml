@@ -4,6 +4,9 @@ version = "0.1.4"
 description = "A set of tools to use when calling Narrative I/O LLMs."
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
@@ -21,6 +24,10 @@ dependencies = [
     "torch==2.5.1",
     "strsim==0.0.3",
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/narrative-io/narrative-llm-tools"
+"Bug Tracker" = "https://github.com/narrative-io/narrative-llm-tools/issues"
 
 [tool.uv]
 fork-strategy = "requires-python"
@@ -53,9 +60,11 @@ exclude_lines = [
     "raise ImportError",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["narrative_llm_tools"]
+
 [tool.hatch.build.targets.wheel.force-include]
 "narrative_llm_tools/py.typed" = "narrative_llm_tools/py.typed"
-"narrative_llm_tools/templates" = "narrative_llm_tools/templates"
 
 [tool.mypy]
 python_version = "3.10"
