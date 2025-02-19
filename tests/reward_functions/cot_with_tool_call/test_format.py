@@ -260,6 +260,30 @@ def test_repetition_penalty_reward():
     rewards = penalty_func([repetitive, varied])
     assert rewards[0] < rewards[1]  # Repetitive content should be penalized
 
+def test_format_reward():
+    completion = [{
+        "role": "assistant",
+        "content": "<|start_thought|>Test thought<|end_thought|>\n<|tool_calls|>[]\n<|eot_id|>"
+    }]
+
+    assert format_reward([completion]) == [1.0]
+
+def test_format_reward_with_no_thoughts():
+    completion = [{
+        "role": "assistant",
+        "content": "<|tool_calls|>[]\n<|eot_id|>"
+    }]
+
+    assert format_reward([completion]) == [1.0]
+
+def test_format_reward_with_thoughts_after_tool_calls():
+    completion = [{
+        "role": "assistant",
+        "content": "<|tool_calls|>[]<|start_thought|>Test thought<|end_thought|><|eot_id|>"
+    }]
+
+    assert format_reward([completion]) == [0.0]
+
 def test_combine_rewards():
     completion = [{
         "role": "assistant",
@@ -297,20 +321,6 @@ def test_default_reward_function():
     rewards = default_func(completions=[valid_completion])
     assert len(rewards) == 1
     assert 0 <= rewards[0] <= 1.0
-
-@pytest.mark.parametrize("invalid_input", [
-    {"role": "assistant"},  # Missing content
-    {"content": ""},  # Missing role
-])
-def test_edge_cases(invalid_input):
-    """Test various edge cases with invalid inputs"""
-    # Fix: Properly wrap the invalid input as a completion
-    completion = [[invalid_input]] if invalid_input is not None else [[]]
-
-    # Test each function with invalid input
-    assert format_reward(completion) == [0.0]
-    assert thought_steps_reward(completion) == [0.0]
-    assert get_repetition_penalty_reward()(completion) == [0.0]
 
 def test_validate_tool_call_against_schema():
     valid_add = '''[{

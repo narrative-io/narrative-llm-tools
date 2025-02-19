@@ -793,10 +793,10 @@ def get_default_reward_function(*, include_schema_validation: bool = True) -> Re
         **kwargs: dict[str, list[Any]],
     ) -> list[float]:
         reward_functions = [
-            (format_reward, 0.25),
-            (thought_steps_reward, 0.35),
-            (tool_calls_validity_reward, 0.75),
-            (get_repetition_penalty_reward(), 0.15),
+            (format_reward, 0.1667),
+            (thought_steps_reward, 0.2333),
+            (tool_calls_validity_reward, 0.50),
+            (get_repetition_penalty_reward(), 0.1),
         ]
 
         return combine_rewards(
