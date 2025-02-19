@@ -1,7 +1,6 @@
-import json
 from typing import Any
 import pytest
-from narrative_llm_tools.reward_functions.cot_with_tool_call.format import (
+from narrative_llm_tools.reward_functions.cot_with_tool_call import (
     RewardFn,
     StringOrMessage,
     format_reward,
@@ -40,7 +39,7 @@ mock_json_schema = {
             "type": "number"
           },
           "b": {
-            "title": "Second Number", 
+            "title": "Second Number",
             "description": "The second number in the operation",
             "type": "number"
           }
@@ -84,9 +83,9 @@ def test_reward_fn_with_string_completions():
     """Test reward function with string completions."""
     reward_fn = SimpleRewardFn()
     completions = ["Hello", "", "World"]
-    
+
     rewards = reward_fn(completions=completions)
-    
+
     assert len(rewards) == len(completions)
     assert rewards == [1.0, 0.0, 1.0]
 
@@ -108,9 +107,9 @@ def test_reward_fn_with_message_completions():
             {"role": "assistant", "content": "World"}
         ]
     ]
-    
+
     rewards = reward_fn(completions=completions)
-    
+
     assert len(rewards) == len(completions)
     assert rewards == [1.0, 0.0, 1.0]
 
@@ -120,9 +119,9 @@ def test_reward_fn_with_prompts():
     reward_fn = SimpleRewardFn()
     completions = ["Hello", "World"]
     prompts = ["What's your greeting?", "Say something"]
-    
+
     rewards = reward_fn(completions=completions, prompts=prompts)
-    
+
     assert len(rewards) == len(completions)
     assert rewards == [1.0, 1.0]
 
@@ -131,13 +130,13 @@ def test_reward_fn_with_kwargs():
     """Test reward function with additional kwargs."""
     reward_fn = SimpleRewardFn()
     completions = ["Hello"]
-    
+
     rewards = reward_fn(
         completions=completions,
         extra_param=["something"],
         another_param=["else"]
     )
-    
+
     assert len(rewards) == len(completions)
     assert rewards == [1.0]
 
@@ -149,13 +148,13 @@ def test_validate_reward_fn_inputs_valid():
         "scores": [1.0, 2.0, 3.0],
         "metadata": ["a", "b", "c"]
     }
-    
+
     # Should not raise any exceptions
     validate_reward_fn_inputs(completions, prompts, **kwargs)
-    
+
     # Test with None prompts
     validate_reward_fn_inputs(completions, None, **kwargs)
-    
+
     # Test with empty kwargs
     validate_reward_fn_inputs(completions, prompts, **{})
 
@@ -163,14 +162,14 @@ def test_validate_reward_fn_inputs_invalid_prompts():
     """Test validate_reward_fn_inputs with mismatched prompts length."""
     completions = ["comp1", "comp2", "comp3"]
     prompts = ["prompt1", "prompt2"]  # One less than completions
-    
+
     with pytest.raises(ValueError, match=r"prompts length \(2\) != completions length \(3\)"):
         validate_reward_fn_inputs(completions, prompts, **{})
 
 def test_validate_reward_fn_inputs_invalid_kwargs():
     """Test validate_reward_fn_inputs with invalid kwargs."""
     completions = ["comp1", "comp2", "comp3"]
-    
+
     # Test with mismatched kwargs length
     kwargs_wrong_length = {"scores": [1.0, 2.0]}  # One less than completions
     with pytest.raises(ValueError, match=r"kwargs\[scores\] length \(2\) != completions length \(3\)"):
@@ -184,7 +183,7 @@ def test_validate_reward_fn_inputs_multiple_kwargs():
         "wrong_type": "not a list",  # Invalid type
         "wrong_length": [1.0],  # Wrong length
     }
-    
+
     # Fix wrong_type and test wrong_length
     kwargs["wrong_type"] = [1.0, 2.0]
     with pytest.raises(ValueError, match=r"kwargs\[wrong_length\] length \(1\) != completions length \(2\)"):
@@ -196,7 +195,7 @@ def test_get_content_by_role():
         {"role": "user", "content": "user message"},
         {"role": "assistant", "content": "assistant message"}
     ]
-    
+
     assert get_first_message_content_by_role(messages, "assistant") == "assistant message"
     assert get_first_message_content_by_role(messages, "user") == "user message"
     assert get_first_message_content_by_role(messages, "nonexistent") == ""
@@ -208,12 +207,12 @@ def test_count_thoughts():
     count, chars = count_thoughts(text)
     assert count == 2
     assert chars == len("First thought") + len("Second thought")
-    
+
     # Empty text
     count, chars = count_thoughts("")
     assert count == 0
     assert chars == 0
-    
+
     # Malformed tags
     count, chars = count_thoughts("<|start_thought|>Incomplete")
     assert count == 0
@@ -225,7 +224,7 @@ def test_thought_steps_reward():
         "role": "assistant",
         "content": "<|start_thought|>One thought<|end_thought|>"
     }]
-    
+
     three_thoughts = [{
         "role": "assistant",
         "content": """
@@ -234,14 +233,14 @@ def test_thought_steps_reward():
         <|start_thought|>Third thought<|end_thought|>
         """
     }]
-    
+
     rewards = thought_steps_reward(completions=[single_thought, three_thoughts])
     assert len(rewards) == 2
     assert rewards[0] < rewards[1]  # Three thoughts should score higher
 
 def test_repetition_penalty_reward():
     penalty_func = get_repetition_penalty_reward(ngram_size=2)
-    
+
     # Test with repetitive content
     repetitive = [{
         "role": "assistant",
@@ -249,7 +248,7 @@ def test_repetition_penalty_reward():
         <|start_thought|>The cat the cat the cat<|end_thought|>
         """
     }]
-    
+
     # Test with varied content
     varied = [{
         "role": "assistant",
@@ -257,7 +256,7 @@ def test_repetition_penalty_reward():
         <|start_thought|>The cat sat on the mat<|end_thought|>
         """
     }]
-    
+
     rewards = penalty_func([repetitive, varied])
     assert rewards[0] < rewards[1]  # Repetitive content should be penalized
 
@@ -266,19 +265,19 @@ def test_combine_rewards():
         "role": "assistant",
         "content": "<|start_thought|>Test thought<|end_thought|>\n<|tool_calls|>[]\n<|eot_id|>"
     }]
-    
+
     reward_functions = [
         (format_reward, 0.5),
         (thought_steps_reward, 0.5)
     ]
-    
+
     rewards = combine_rewards(reward_functions, [completion])
     assert len(rewards) == 1
     assert 0 <= rewards[0] <= 1.0
 
 def test_default_reward_function():
     default_func = get_default_reward_function()
-    
+
     valid_completion = [{
         "role": "assistant",
         "content": """
@@ -294,7 +293,7 @@ def test_default_reward_function():
         <|eot_id|>
         """
     }]
-    
+
     rewards = default_func(completions=[valid_completion])
     assert len(rewards) == 1
     assert 0 <= rewards[0] <= 1.0
@@ -307,7 +306,7 @@ def test_edge_cases(invalid_input):
     """Test various edge cases with invalid inputs"""
     # Fix: Properly wrap the invalid input as a completion
     completion = [[invalid_input]] if invalid_input is not None else [[]]
-    
+
     # Test each function with invalid input
     assert format_reward(completion) == [0.0]
     assert thought_steps_reward(completion) == [0.0]
@@ -414,10 +413,10 @@ def test_combine_rewards_empty_functions():
         "Some completion 2",
         "Some completion 3"
     ]
-    
+
     # Execute
     result = combine_rewards(reward_functions, completions)
-    
+
     # Assert
     assert len(result) == len(completions)
     assert all(reward == 0.0 for reward in result)

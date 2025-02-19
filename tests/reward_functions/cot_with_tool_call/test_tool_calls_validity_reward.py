@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import patch
 
 # Directly import the function under test
-from narrative_llm_tools.reward_functions.cot_with_tool_call.format import (
+from narrative_llm_tools.reward_functions.cot_with_tool_call import (
     tool_calls_validity_reward
 )
 
@@ -73,7 +73,7 @@ def test_invalid_tool_call_completion(tool_catalog_prompts):
         "content": """<|start_thought|>I should add these numbers<|end_thought|>
         <|tool_calls|>[{}]
         <|eot_id|>"""
-    }]  
+    }]
     assert tool_calls_validity_reward(completions=[completion], prompts=[tool_catalog_prompts]) == [0.0]
 
 def test_no_tool_calls_completion(tool_catalog_prompts):
