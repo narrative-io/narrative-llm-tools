@@ -22,8 +22,8 @@ All reward functions implement (or conform to) the following protocol (originall
 class RewardFn(Protocol):
     def __call__(
         self,
-        completions: list[StringOrMessage],
-        prompts: list[StringOrMessage] | None = None,
+        completions: list[StringsOrMessages],
+        prompts: list[StringsOrMessages] | None = None,
         **kwargs: dict[str, list[Any]],
     ) -> list[float]:
         ...
@@ -174,8 +174,8 @@ def get_repetition_penalty_reward(ngram_size: int = 3, max_penalty: float = -0.5
 ```python
 def combine_rewards(
     reward_functions: list[tuple[RewardFn, float]],
-    completions: list[StringOrMessage],
-    prompts: list[StringOrMessage] | None = None,
+    completions: list[StringsOrMessages],
+    prompts: list[StringsOrMessages] | None = None,
     **kwargs: dict[str, list[Any]],
 ) -> list[float]
 ```
