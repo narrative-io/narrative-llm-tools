@@ -1,11 +1,14 @@
 import json
+import logging
 import re
 from collections.abc import Iterator, Sequence
 from typing import Any, Protocol, runtime_checkable
 
 from jsonschema import ValidationError, validate
 
-StringOrMessage = str | list[dict[str, Any]]
+StringOrMessages = str | list[dict[str, Any]]
+
+logger = logging.getLogger("narrative-llm-tools")
 
 
 @runtime_checkable
@@ -53,10 +56,17 @@ class RewardFn(Protocol):
 
     def __call__(
         self,
-        completions: list[StringOrMessage],
-        prompts: list[StringOrMessage] | None = None,
+        completions: list[StringOrMessages],
+        prompts: list[StringOrMessages] | None = None,
         **kwargs: dict[str, list[Any]],
     ) -> list[float]: ...
+
+
+def get_completion_content(completion: StringOrMessages) -> str:
+    if not completion:
+        return ""
+    first_msg = completion[0]
+    return first_msg["content"] if isinstance(first_msg, dict) else first_msg
 
 
 def adjust_scores_by_length(
@@ -109,8 +119,8 @@ def adjust_scores_by_length(
 
 
 def validate_reward_fn_inputs(
-    completions: list[StringOrMessage],
-    prompts: list[StringOrMessage] | None,
+    completions: list[StringOrMessages],
+    prompts: list[StringOrMessages] | None,
     **kwargs: dict[str, list[Any]],
 ) -> None:
     """Validates that input lists for reward function evaluation have consistent lengths.
@@ -121,11 +131,11 @@ def validate_reward_fn_inputs(
     should correspond to the same sample.
 
     Args:
-        completions (list[StringOrMessage]): A list of model completions to be evaluated.
+        completions (list[StringsOrMessages]): A list of model completions to be evaluated.
             Each element can be either a string or a Message object. This list serves as
             the reference length for validation.
 
-        prompts (list[StringOrMessage] | None): Optional list of prompts corresponding to
+        prompts (list[StringsOrMessages] | None): Optional list of prompts corresponding to
             the completions. If provided, must have the same length as completions. Each
             element can be either a string or a Message object.
 
@@ -243,8 +253,8 @@ def count_thoughts(text: str) -> tuple[int, int]:
 
 
 def format_reward(
-    completions: list[StringOrMessage],
-    prompts: list[StringOrMessage] | None = None,
+    completions: list[StringOrMessages],
+    prompts: list[StringOrMessages] | None = None,
     **kwargs: dict[str, list[Any]],
 ) -> list[float]:
     """Evaluates if model completions follow the expected format structure with thoughts
@@ -283,20 +293,16 @@ def format_reward(
 
     rewards = []
     for completion in completions:
-        content = (
-            get_first_message_content_by_role(completion, "assistant")
-            if not isinstance(completion, str)
-            else completion
-        )
-        match = bool(re.match(pattern, content, re.DOTALL | re.MULTILINE))
+        completion_contents = get_completion_content(completion)
+        match = bool(re.match(pattern, completion_contents, re.DOTALL | re.MULTILINE))
         rewards.append(1.0 if match else 0.0)
 
     return rewards
 
 
 def thought_steps_reward(
-    completions: list[StringOrMessage],
-    prompts: list[StringOrMessage] | None = None,
+    completions: list[StringOrMessages],
+    prompts: list[StringOrMessages] | None = None,
     **kwargs: dict[str, list[Any]],
 ) -> list[float]:
     """Evaluates the quality of thought step reasoning in model responses.
@@ -310,11 +316,11 @@ def thought_steps_reward(
     and rewards detailed explanations up to 1000 characters.
 
     Args:
-        completions (list[StringOrMessage]): List of model responses to evaluate. Each
+        completions (list[StringsOrMessages]): List of model responses to evaluate. Each
             element can be either a string containing the response text directly, or a
             list of messages where the assistant's response should be extracted.
 
-        prompts (list[StringOrMessage] | None, optional): List of prompts that generated
+        prompts (list[StringsOrMessages] | None, optional): List of prompts that generated
             the completions. Currently not used in scoring but maintained for consistency
             with reward function interface. Defaults to None.
 
@@ -356,11 +362,8 @@ def thought_steps_reward(
     rewards = []
 
     for completion in completions:
-        content = (
-            get_first_message_content_by_role(completion, "assistant")
-            if isinstance(completion, list)
-            else completion
-        )
+        content = get_completion_content(completion)
+        num_thoughts, total_chars = count_thoughts(content)
         num_thoughts, total_chars = count_thoughts(content)
 
         # Combine both quantity and quality metrics
@@ -465,8 +468,8 @@ def validate_tool_call_against_schema(tool_call: str, schema: dict[str, Any]) ->
 
 
 def tool_calls_validity_reward(
-    completions: list[StringOrMessage],
-    prompts: list[StringOrMessage] | None = None,
+    completions: list[StringOrMessages],
+    prompts: list[StringOrMessages] | None = None,
     **kwargs: dict[str, list[Any]],
 ) -> list[float]:
     """Evaluates the validity of tool calls in model responses against provided schemas.
@@ -480,12 +483,12 @@ def tool_calls_validity_reward(
     fully valid tool calls or 0.0 for any validation failures.
 
     Args:
-        completions (list[StringOrMessage]): List of model responses to evaluate. Each
+        completions (list[StringsOrMessages]): List of model responses to evaluate. Each
             element can be either:
             - A string containing the response text
             - A list of messages where the assistant's response should be extracted
 
-        prompts (list[StringOrMessage] | None, optional): List of prompts that generated
+        prompts (list[StringsOrMessages] | None, optional): List of prompts that generated
             the completions. Important for schema validation as they may contain tool
             catalogs. If not provided, defaults to empty strings. Each element can be:
             - A string (will not enable schema validation)
@@ -571,32 +574,32 @@ def tool_calls_validity_reward(
     """
     validate_reward_fn_inputs(completions, prompts, **kwargs)
     rewards = []
-    prompts_iter: list[StringOrMessage] | list[None] = (
-        prompts if prompts is not None else [""] * len(completions)
-    )
 
     completion_lengths = []
-    for completion, prompt in zip(completions, prompts_iter, strict=False):
-        content = (
-            get_first_message_content_by_role(completion, "assistant")
-            if isinstance(completion, list)
-            else completion
-        )
-        completion_lengths.append(len(content))
+    for completion, prompt in zip(
+        completions, prompts if prompts is not None else [""], strict=False
+    ):
+        completion_contents = get_completion_content(completion)
+        completion_lengths.append(len(completion_contents))
         reward = 0.0
 
         try:
-            tool_calls_match = re.search(r"<\|tool_calls\|>(.*?)<\|eot_id\|>", content, re.DOTALL)
+            tool_calls_match = re.search(
+                r"<\|tool_calls\|>(.*?)<\|eot_id\|>", completion_contents, re.DOTALL
+            )
 
             if tool_calls_match:
                 tool_calls = json.loads(tool_calls_match.group(1))
 
-                if isinstance(prompt, list):
-                    tool_catalog_str = get_first_message_content_by_role(prompt, "tool_catalog")
-                    if tool_catalog_str:
-                        schema = json.loads(tool_catalog_str)
-                        if validate_tool_call_against_schema(json.dumps(tool_calls), schema):
-                            reward = 1.0
+                tool_catalog_str = (
+                    get_first_message_content_by_role(prompt, "tool_catalog")
+                    if isinstance(prompt, list)
+                    else prompt
+                )
+                if tool_catalog_str:
+                    schema = json.loads(tool_catalog_str)
+                    if validate_tool_call_against_schema(json.dumps(tool_calls), schema):
+                        reward = 1.0
 
         except Exception:
             pass
@@ -624,8 +627,8 @@ def get_repetition_penalty_reward(ngram_size: int = 3, max_penalty: float = -0.5
 
     Returns:
         RewardFn: A reward function with the following signature:
-            (completions: list[StringOrMessage],
-             prompts: list[StringOrMessage] | None = None,
+            (completions: list[StringsOrMessages],
+             prompts: list[StringsOrMessages] | None = None,
              **kwargs: dict[str, list[Any]]) -> list[float]
 
     Calculation Details:
@@ -666,19 +669,15 @@ def get_repetition_penalty_reward(ngram_size: int = 3, max_penalty: float = -0.5
         return zip(*[words[i:] for i in range(ngram_size)], strict=False)
 
     def repetition_penalty_reward(
-        completions: list[StringOrMessage],
-        prompts: list[StringOrMessage] | None = None,
+        completions: list[StringOrMessages],
+        prompts: list[StringOrMessages] | None = None,
         **kwargs: dict[str, list[Any]],
     ) -> list[float]:
         validate_reward_fn_inputs(completions, prompts, **kwargs)
         rewards = []
 
         for completion in completions:
-            content = (
-                get_first_message_content_by_role(completion, "assistant")
-                if isinstance(completion, list)
-                else completion
-            )
+            content = get_completion_content(completion)
 
             thoughts = re.findall(r"<\|start_thought\|>(.*?)<\|end_thought\|>", content, re.DOTALL)
 
@@ -709,8 +708,8 @@ def get_repetition_penalty_reward(ngram_size: int = 3, max_penalty: float = -0.5
 
 def combine_rewards(
     reward_functions: list[tuple[RewardFn, float]],
-    completions: list[StringOrMessage],
-    prompts: list[StringOrMessage] | None = None,
+    completions: list[StringOrMessages],
+    prompts: list[StringOrMessages] | None = None,
     **kwargs: dict[str, list[Any]],
 ) -> list[float]:
     """Combines multiple reward functions using weighted averaging.
@@ -723,16 +722,16 @@ def combine_rewards(
         reward_functions (list[tuple[RewardFn, float]]): List of tuples, where each tuple
             contains:
             - A reward function with signature:
-                (completions: list[StringOrMessage],
-                 prompts: list[StringOrMessage] | None,
+                (completions: list[StringsOrMessages],
+                 prompts: list[StringsOrMessages] | None,
                  **kwargs: dict[str, list[Any]]) -> list[float]
             - A float weight indicating the relative importance of that function
 
-        completions (list[StringOrMessage]): List of model responses to evaluate. Each
+        completions (list[StringsOrMessages]): List of model responses to evaluate. Each
             element can be either a string or a Message object. All reward functions
             will be applied to these completions.
 
-        prompts (list[StringOrMessage] | None, optional): List of prompts that generated
+        prompts (list[StringsOrMessages] | None, optional): List of prompts that generated
             the completions. Must have same length as completions if provided. Passed to
             each reward function. Defaults to None.
 
@@ -806,8 +805,8 @@ def get_default_reward_function(*, include_schema_validation: bool = True) -> Re
 
     Returns:
         RewardFn: A reward function with the following signature:
-            (completions: list[StringOrMessage],
-             prompts: list[StringOrMessage] | None = None,
+            (completions: list[StringsOrMessages],
+             prompts: list[StringsOrMessages] | None = None,
              **kwargs: dict[str, list[Any]]) -> list[float]
 
     The returned function evaluates completions using these components:
@@ -846,8 +845,8 @@ def get_default_reward_function(*, include_schema_validation: bool = True) -> Re
     """
 
     def default_reward_function(
-        completions: list[StringOrMessage],
-        prompts: list[StringOrMessage] | None = None,
+        completions: list[StringOrMessages],
+        prompts: list[StringOrMessages] | None = None,
         **kwargs: dict[str, list[Any]],
     ) -> list[float]:
         reward_functions = [

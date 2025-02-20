@@ -2,7 +2,7 @@ from typing import Any
 import pytest
 from narrative_llm_tools.reward_functions.cot_with_tool_call import (
     RewardFn,
-    StringOrMessage,
+    StringOrMessages,
     format_reward,
     thought_steps_reward,
     get_repetition_penalty_reward,
@@ -55,8 +55,8 @@ class SimpleRewardFn(RewardFn):
     """Simple reward function that returns 1.0 for non-empty messages and 0.0 for empty ones."""
     def __call__(
         self,
-        completions: list[StringOrMessage],
-        prompts: list[StringOrMessage] | None = None,
+        completions: list[StringOrMessages],
+        prompts: list[StringOrMessages] | None = None,
         **kwargs: list[Any]
     ) -> list[float]:
         rewards = []
