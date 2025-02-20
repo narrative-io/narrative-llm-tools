@@ -1,6 +1,6 @@
 import json
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from typing import Any, Protocol, runtime_checkable
 
 from jsonschema import ValidationError, validate
@@ -57,6 +57,55 @@ class RewardFn(Protocol):
         prompts: list[StringOrMessage] | None = None,
         **kwargs: dict[str, list[Any]],
     ) -> list[float]: ...
+
+
+def adjust_scores_by_length(
+    scores: Sequence[float], lengths: Sequence[int], correct_threshold: float = 1.0
+) -> list[float]:
+    """
+    Adjust an array of scores based on lengths, using a quadratic penalty.
+    Only correct answers (score of 1.0) are penalized based on length.
+    The shortest correct answer is used as the baseline.
+
+    Args:
+        scores: Original scores (assumed to be between 0 and 1)
+        lengths: The corresponding lengths of each text
+        correct_threshold: Threshold for considering a score as correct (default: 1.0)
+
+    Returns:
+        List[float]: Adjusted scores
+
+    Raises:
+        ValueError: If scores and lengths sequences have different lengths
+    """
+    if len(scores) != len(lengths):
+        raise ValueError("Scores and lengths must have the same length")
+
+    # Find the shortest and longest lengths among correct answers (score == 1.0)
+    correct_lengths = [
+        lens for s, lens in zip(scores, lengths, strict=False) if abs(s - correct_threshold) < 1e-6
+    ]
+    if not correct_lengths:
+        return list(scores)  # If no correct answers, return original scores
+
+    min_length = min(correct_lengths)
+    max_length = max(correct_lengths)
+    k = max_length - min_length  # Use range as scaling factor
+
+    # If all correct answers are the same length, return original scores
+    if k == 0:
+        return list(scores)
+
+    adjusted_scores = []
+    for score, length in zip(scores, lengths, strict=False):
+        if abs(score - correct_threshold) < 1e-6:
+            excess_length = length - min_length
+            penalty = 1 / (1 + (excess_length / k) ** 2)
+            adjusted_scores.append(score * penalty)
+        else:
+            adjusted_scores.append(score)
+
+    return adjusted_scores
 
 
 def validate_reward_fn_inputs(
@@ -446,7 +495,8 @@ def tool_calls_validity_reward(
             used in the reward calculation but maintained for interface consistency.
 
     Returns:
-        list[float]: A list of reward scores, one for each completion, where:
+        list[float]: A list of reward scores, one for each completion, where the orignal
+        score is calculated as follows:
             - 1.0: Tool calls are present, well-formatted, and validate against schema
             - 0.0: Any of these cases:
                 * No tool calls present
@@ -454,6 +504,12 @@ def tool_calls_validity_reward(
                 * Invalid JSON in tool calls
                 * Tool calls don't match schema
                 * Any other validation failure
+
+            The scores are then adjusted by length of the completion giving
+            shorter completions a higher reward vs longer completions. The
+            idea here is that tokens are expensive to generate so if we
+            can generate a correct answer in fewer tokens, we should reward
+            the model for being efficient.
 
     Example Schema:
         {
@@ -519,12 +575,14 @@ def tool_calls_validity_reward(
         prompts if prompts is not None else [""] * len(completions)
     )
 
+    completion_lengths = []
     for completion, prompt in zip(completions, prompts_iter, strict=False):
         content = (
             get_first_message_content_by_role(completion, "assistant")
             if isinstance(completion, list)
             else completion
         )
+        completion_lengths.append(len(content))
         reward = 0.0
 
         try:
@@ -545,7 +603,7 @@ def tool_calls_validity_reward(
 
         rewards.append(reward)
 
-    return rewards
+    return adjust_scores_by_length(rewards, completion_lengths)
 
 
 def get_repetition_penalty_reward(ngram_size: int = 3, max_penalty: float = -0.5) -> RewardFn:
