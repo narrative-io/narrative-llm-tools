@@ -13,6 +13,72 @@
 - **Automatic Checks**: The project uses pre-commit hooks that enforce formatting, linting, and testing standards
 - **Handling Hook Failures**: If pre-commit hooks fail, run `make format` and add the files again before committing
 
+## HuggingFace Space Submodule
+
+The project includes a HuggingFace Space submodule at `hf-space/` which contains the Narrative I/O README space. This submodule should be managed directly within this repository, as it's closely related to the narrative-llm-tools project.
+
+### Cloning the Repository with Submodules
+
+When cloning the repository for the first time, use:
+```bash
+# Option 1: Clone with submodules in one command
+git clone --recurse-submodules https://github.com/narrative-io/narrative-llm-tools.git
+
+# Option 2: Clone and then initialize submodules separately
+git clone https://github.com/narrative-io/narrative-llm-tools.git
+cd narrative-llm-tools
+git submodule update --init --recursive
+```
+
+### Making Changes to the HuggingFace Space
+
+1. **Make changes directly in the submodule directory**:
+   ```bash
+   cd hf-space
+   # Make your changes to the Space files
+   ```
+
+2. **Commit changes within the submodule**:
+   ```bash
+   cd hf-space
+   git add .
+   git commit -m "feat: description of changes to the HF space"
+   ```
+
+3. **Push changes to the HuggingFace repository**:
+   ```bash
+   cd hf-space
+   git push origin main
+   ```
+
+4. **Update the main repository to reference the new submodule commit**:
+   ```bash
+   cd ..  # Back to main repository
+   git add hf-space
+   git commit -m "chore: update HF space submodule with latest changes"
+   git push
+   ```
+
+### Best Practices for Submodule Management
+
+1. **Keep the submodule in sync** with the main project's features and API changes.
+
+2. **Whenever major changes are made to the main library**, update examples and documentation in the HF Space to reflect these changes.
+
+3. **Check submodule status regularly**:
+   ```bash
+   git submodule status
+   ```
+
+4. **After pulling from remote** with submodule changes, always run:
+   ```bash
+   git submodule update --init --recursive
+   ```
+
+5. **Document changes to the HF Space** in commit messages and pull requests, explaining what was updated and why.
+
+6. **Update both repositories together** when making coordinated changes that affect both the library and its demonstration space.
+
 ## Code Style Guidelines
 - **Type Annotations**: Strict typing required - use mypy with strict mode
 - **Line Length**: 100 characters max
