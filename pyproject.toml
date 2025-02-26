@@ -92,6 +92,7 @@ exclude = [
     "test_*.py",
     "__pycache__",
     ".venv",
+    "hf-space",
 ]
 
 [tool.ruff.lint]
@@ -118,6 +119,7 @@ exclude = '''
     | build
     | dist
     | tests
+    | hf-space
   )/
 )
 '''
@@ -143,4 +145,5 @@ dev = [
     "mkdocs>=1.6.1",
     "datasets>=2.14.5",
     "trl>=0.15.1",
+    "gradio>=5.18.0"
 ]
