@@ -18,7 +18,7 @@
 - **Line Length**: 100 characters max
 - **Formatting**: Uses ruff format and black
 - **Imports**: Use ruff's isort configuration
-- **Python Version**: Target Python 3.10-3.12
+- **Python Version**: Target Python 3.10 and above
 - **Error Handling**: Log exceptions with traceback using `logger.error`, include context
 - **Testing**: Write pytest tests for all functionality with good coverage
 - **Naming**:
