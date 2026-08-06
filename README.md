@@ -11,9 +11,11 @@ A set of tools to use when calling Narrative I/O LLMs. This package provides uti
 - 🛠️ Tool Management System
 - 💾 Caching System for Format Enforcers
 
-## LLMs
+## HuggingFace Space
 
-Checkout our our [HuggingFace Space](https://huggingface.co/spaces/narrative-io/README) for more information.
+Check out our [HuggingFace Space](https://huggingface.co/spaces/narrative-io/README) for interactive demos and more information about using Narrative I/O LLMs.
+
+The HuggingFace Space repository is included as a git submodule in this project under the `hf-space/` directory. When cloning this repository, use `git clone --recurse-submodules` to also get the Space files.
 
 ## Installation
 
