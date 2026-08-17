@@ -5,34 +5,47 @@ on:
     types:
       - closed
 
+permissions:
+  contents: write # Pushes the release tag and creates the GitHub release.
+
 jobs:
   create-tag-and-release:
     if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # Credentials must persist here: the "Create and push tag" step below
+      # pushes via git. Every later step is a trusted inline script.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0 # zizmor: ignore[artipacked]
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # The PR title is attacker-controlled — anyone who can open a pull request
+      # picks it. Routed through env: it stays data; interpolated directly into
+      # the script it would be executable text.
       - name: Get version from PR title
         id: extract_version
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          VERSION=$(echo "${{ github.event.pull_request.title }}" | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          VERSION=$(echo "$PR_TITLE" | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Configure Git
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "github-actions@github.com"
 
+      # VERSION is set by the extract step above, via GITHUB_ENV.
       - name: Create and push tag
         run: |
-          git tag -a v${{ env.VERSION }} -m "Release v${{ env.VERSION }}"
-          git push origin v${{ env.VERSION }}
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push origin "v$VERSION"
 
+      # superfluous-actions is suppressed: replacing this with `gh release
+      # create` would change the release path, which this sweep does not touch.
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2 # zizmor: ignore[superfluous-actions]
         with:
           tag_name: v${{ env.VERSION }}
           name: Release v${{ env.VERSION }}
