@@ -16,7 +16,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # Credentials must persist here: peter-evans/create-pull-request pushes
+      # the release branch via git using what checkout leaves behind.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0 # zizmor: ignore[artipacked]
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -63,13 +65,19 @@ jobs:
           cat release_notes.md >> $GITHUB_ENV
           echo "$EOF" >> $GITHUB_ENV
 
+      # The dispatch input goes through env: so it stays data; expanded into the
+      # script text it would be executable regardless of who supplies it.
       - name: Update version in pyproject.toml
+        env:
+          VERSION: ${{ github.event.inputs.version }}
         run: |
-          sed -i '/^\[project\]/,/^\[/ s/^version = ".*"/version = "${{ github.event.inputs.version }}"/' pyproject.toml
+          sed -i "/^\[project\]/,/^\[/ s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
 
       - name: Update README version
+        env:
+          VERSION: ${{ github.event.inputs.version }}
         run: |
-          sed -i 's/@v[0-9]\+\.[0-9]\+\.[0-9]\+/@v${{ github.event.inputs.version }}/' README.md
+          sed -i "s/@v[0-9]\+\.[0-9]\+\.[0-9]\+/@v$VERSION/" README.md
 
 
       - name: Create pull request
