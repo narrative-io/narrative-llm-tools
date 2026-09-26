@@ -45,7 +45,7 @@ jobs:
       # superfluous-actions is suppressed: replacing this with `gh release
       # create` would change the release path, which this sweep does not touch.
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2 # zizmor: ignore[superfluous-actions]
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3 # zizmor: ignore[superfluous-actions]
         with:
           tag_name: v${{ env.VERSION }}
           name: Release v${{ env.VERSION }}
